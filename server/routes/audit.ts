@@ -1,0 +1,39 @@
+import { Router } from "express";
+import { query } from "../db.ts";
+
+export const auditRouter = Router();
+
+interface AuditRow {
+  id: string;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  detail: string | null;
+  created_at: string;
+}
+
+auditRouter.get("/audit", async (req, res, next) => {
+  try {
+    const action = (req.query.action as string | undefined)?.toUpperCase();
+    const valid = ["CREATE", "READ", "UPDATE", "DELETE"];
+    const filter = action && valid.includes(action) ? action : null;
+    const { rows } = await query<AuditRow>(
+      `SELECT * FROM audit_log
+       WHERE ($1::text IS NULL OR action = $1)
+       ORDER BY created_at DESC LIMIT 500`,
+      [filter],
+    );
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        action: r.action,
+        entity: r.entity,
+        entityId: r.entity_id,
+        detail: r.detail,
+        createdAt: r.created_at,
+      })),
+    );
+  } catch (err) {
+    next(err);
+  }
+});

@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+app/node_modules/
+
+# build output
+app/build/
+dist/
+
+# env
+.env
+.env.local
+*.local
+
+# logs
+npm-debug.log*
+*.log
+logs/
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# misc
+coverage/
+.tmp/
