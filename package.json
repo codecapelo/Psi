@@ -10,7 +10,7 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:app": "npm --prefix app run dev",
     "dev": "concurrently -n server,app -c blue,green \"npm:dev:server\" \"npm:dev:app\"",
-    "build:app": "npm --prefix app install && npm --prefix app run build",
+    "build:app": "npm --prefix app install --include=dev && npm --prefix app run build",
     "build": "npm run build:app",
     "start": "tsx server/index.ts",
     "typecheck": "tsc --noEmit",
