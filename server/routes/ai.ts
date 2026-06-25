@@ -46,6 +46,7 @@ const completeSchema = z.object({
   ),
   context: z.record(z.string(), z.unknown()).optional(),
   temperature: z.number().min(0).max(2).optional(),
+  jsonMode: z.boolean().optional(),
 });
 
 aiRouter.post("/ai/complete", async (req, res, next) => {
@@ -53,7 +54,7 @@ aiRouter.post("/ai/complete", async (req, res, next) => {
     const parsed = completeSchema.safeParse(req.body);
     if (!parsed.success)
       return res.status(400).json({ error: "Payload de IA inválido." });
-    const { task, messages, context, temperature } = parsed.data;
+    const { task, messages, context, temperature, jsonMode } = parsed.data;
 
     const finalMessages: ChatMessage[] = [...messages];
     if (context && Object.keys(context).length > 0) {
@@ -69,6 +70,8 @@ aiRouter.post("/ai/complete", async (req, res, next) => {
       messages: finalMessages,
       temperature,
       injectMosp: MOSP_TASKS.has(task),
+      jsonMode,
+      injectRole: true,
     });
 
     // LGPD: registra a transferência de conteúdo clínico à OpenAI (EUA) —

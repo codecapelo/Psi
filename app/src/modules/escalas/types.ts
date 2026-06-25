@@ -40,6 +40,7 @@ export interface ScaleDef {
     | "TOC"
     | "Risco"
     | "Geriatria"
+    | "Dependência"
     | "Geral";
   reference?: string;
   /** Opções padrão aplicadas a itens sem opções próprias. */

@@ -22,6 +22,8 @@ interface ExamCtx {
   saveState: SaveState;
   /** Grava (merge no topo) a fatia `key` do JSON do exame, com autosave. */
   updateSlice: (key: string, value: unknown) => void;
+  /** Lê o JSON do exame mais recente (ref síncrona, válida fora do render). */
+  getData: () => ExamData;
   /** Força o flush imediato do que estiver pendente. */
   flush: () => Promise<void>;
   setStatus: (status: ExamStatus) => Promise<void>;
@@ -50,10 +52,18 @@ export function ExamProvider({
   // Patch pendente acumulado entre flushes do autosave.
   const pendingRef = useRef<ExamData>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Espelho SÍNCRONO de `data`: fonte de verdade para leituras/merges fora do
+  // ciclo de render (ex.: aplicar resultado de IA após um await) — evita
+  // sobrescrever edições feitas enquanto a operação assíncrona estava pendente.
+  const dataRef = useRef<ExamData>({});
 
   // Sincroniza o estado local quando o exame carrega.
   useEffect(() => {
-    if (query.data) setData(query.data.data || {});
+    if (query.data) {
+      const d = query.data.data || {};
+      dataRef.current = d;
+      setData(d);
+    }
   }, [query.data]);
 
   const flush = useCallback(async () => {
@@ -79,13 +89,18 @@ export function ExamProvider({
 
   const updateSlice = useCallback(
     (key: string, value: unknown) => {
-      setData((prev) => ({ ...prev, [key]: value }));
+      // Atualiza a ref síncrona ANTES do setData, para que merges/leituras
+      // subsequentes no mesmo tick (ou em callbacks async) já enxerguem o valor.
+      dataRef.current = { ...dataRef.current, [key]: value };
+      setData(dataRef.current);
       pendingRef.current[key] = value;
       setSaveState("saving");
       scheduleFlush();
     },
     [scheduleFlush],
   );
+
+  const getData = useCallback(() => dataRef.current, []);
 
   const setStatus = useCallback(
     async (status: ExamStatus) => {
@@ -114,11 +129,12 @@ export function ExamProvider({
       isLoading: query.isLoading,
       saveState,
       updateSlice,
+      getData,
       flush,
       setStatus,
       refetch: query.refetch,
     }),
-    [examId, query.data, query.isLoading, data, saveState, updateSlice, flush, setStatus, query.refetch],
+    [examId, query.data, query.isLoading, data, saveState, updateSlice, getData, flush, setStatus, query.refetch],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -141,16 +157,19 @@ export function useExam(): ExamCtx {
 export function useExamSlice<T extends object>(
   key: string,
   defaults: T,
-): [T, (patch: Partial<T>) => void, (value: T) => void] {
-  const { data, updateSlice } = useExam();
+): [T, (patch: Partial<T>) => void, (value: T) => void, () => T] {
+  const { data, updateSlice, getData } = useExam();
   const current = { ...defaults, ...((data[key] as T) || {}) };
 
   const patch = useCallback(
     (p: Partial<T>) => {
-      const next = { ...defaults, ...((data[key] as T) || {}), ...p };
-      updateSlice(key, next);
+      // Mescla sobre o estado MAIS RECENTE (getData), não sobre o snapshot
+      // capturado no render. Evita reverter edições feitas pelo profissional
+      // enquanto uma operação assíncrona (ex.: IA) estava pendente.
+      const base = (getData()[key] as T) || {};
+      updateSlice(key, { ...defaults, ...base, ...p });
     },
-    [data, key, updateSlice, defaults],
+    [key, updateSlice, defaults, getData],
   );
 
   const replace = useCallback(
@@ -158,7 +177,13 @@ export function useExamSlice<T extends object>(
     [key, updateSlice],
   );
 
-  return [current, patch, replace];
+  /** Lê a fatia mais recente — use em callbacks async antes de aplicar patch. */
+  const getLatest = useCallback(
+    () => ({ ...defaults, ...((getData()[key] as T) || {}) }),
+    [key, defaults, getData],
+  );
+
+  return [current, patch, replace, getLatest];
 }
 
 export type { Exam, ExamWithPatient };

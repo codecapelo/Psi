@@ -26,6 +26,11 @@ import cssrs from "./scales/cssrs";
 import mmse from "./scales/mmse";
 import moca from "./scales/moca";
 import npi from "./scales/npi";
+import audit from "./scales/audit";
+import cage from "./scales/cage";
+import fagerstrom from "./scales/fagerstrom";
+import ciwaar from "./scales/ciwaar";
+import cows from "./scales/cows";
 
 export const SCALES: ScaleDef[] = [
   phq9,
@@ -49,6 +54,11 @@ export const SCALES: ScaleDef[] = [
   mmse,
   moca,
   npi,
+  audit,
+  cage,
+  fagerstrom,
+  ciwaar,
+  cows,
 ];
 
 export function getScale(id: string): ScaleDef | undefined {
