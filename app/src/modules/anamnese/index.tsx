@@ -1,7 +1,9 @@
+import { Sparkles } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
-import { Card, CardHeader, Field, Textarea, Input, Select } from "@/components/ui";
-import { TranscribeButton, AiAssistButton, AiDisclaimer } from "@/components/ai";
+import { Card, CardHeader, Field, Textarea, Input, Select, Button } from "@/components/ui";
+import { TranscribeButton, AiAssistButton, AiDisclaimer, useAi } from "@/components/ai";
 import { useExamSlice } from "@/context/ExamContext";
+import { useToast } from "@/context/ToastContext";
 import { SLICE } from "@/modules/sliceKeys";
 
 // --------------------------------------------------------------------------
@@ -10,6 +12,10 @@ import { SLICE } from "@/modules/sliceKeys";
 interface AnamneseSlice {
   context: string;
   identificacao: string;
+  /** Transcrição bruta da consulta inteira (voz ou colada). */
+  transcricaoBruta: string;
+  /** Anotações que o profissional fez durante a consulta (apoio à IA). */
+  anotacoes: string;
   qp: string;
   hda: string;
   hpp: string;
@@ -27,6 +33,8 @@ interface AnamneseSlice {
 const DEFAULTS: AnamneseSlice = {
   context: "",
   identificacao: "",
+  transcricaoBruta: "",
+  anotacoes: "",
   qp: "",
   hda: "",
   hpp: "",
@@ -58,8 +66,103 @@ const CONTEXTOS = [
   "Residência Terapêutica",
 ];
 
+// Campos que a IA preenche automaticamente a partir da transcrição + anotações.
+// (As chaves precisam existir em AnamneseSlice.)
+const ORGANIZE_FIELDS: { key: keyof AnamneseSlice; label: string }[] = [
+  { key: "identificacao", label: "Identificação: idade, sexo, ocupação, estado civil" },
+  { key: "qp", label: "Queixa Principal: motivo do atendimento, de preferência a fala literal do paciente" },
+  { key: "hda", label: "História da Doença Atual: cronologia, sintomas e evolução" },
+  { key: "hpp", label: "História Patológica Pregressa: comorbidades e internações" },
+  { key: "alergias", label: "Alergias e reações adversas a medicamentos" },
+  { key: "medicacoes", label: "Medicações de uso contínuo" },
+  { key: "familiar", label: "História do contexto familiar" },
+  { key: "pessoalSocial", label: "História pessoal e social" },
+  { key: "habitos", label: "Hábitos e substâncias: álcool, drogas, sono e alimentação" },
+  { key: "examesComplementares", label: "Exames complementares: laboratoriais e de imagem" },
+  { key: "exameFisico", label: "Exame físico: sinais vitais e achados" },
+];
+
+const ORGANIZE_SYSTEM =
+  "Você é um psiquiatra organizando uma anamnese a partir do registro de um atendimento. " +
+  "Com base na TRANSCRIÇÃO da consulta e nas ANOTAÇÕES do profissional, distribua as informações nos campos indicados. " +
+  "Regras: use APENAS informações presentes no material; nunca invente, deduza ou complete além do que foi dito; " +
+  'se não houver informação para um campo, devolva string vazia (""); ' +
+  "preserve a fala literal do paciente na queixa principal sempre que possível; " +
+  "escreva de forma técnica, objetiva e em português. " +
+  "Responda SOMENTE com um objeto JSON contendo exatamente estas chaves:\n" +
+  ORGANIZE_FIELDS.map((f) => `- "${f.key}": ${f.label}`).join("\n");
+
 export default function AnamneseStep() {
   const [a, patch] = useExamSlice<AnamneseSlice>(SLICE.anamnese, DEFAULTS);
+  const { toast } = useToast();
+  const { complete, loading: organizing } = useAi();
+
+  /**
+   * Envia a transcrição + anotações para a IA e distribui o resultado nos
+   * campos da anamnese. Preenche APENAS campos vazios — nunca sobrescreve o
+   * que o profissional já escreveu.
+   */
+  const organize = async () => {
+    const transcricao = (a.transcricaoBruta || "").trim();
+    const notas = (a.anotacoes || "").trim();
+    if (!transcricao && !notas) {
+      toast("Grave ou cole a transcrição da consulta antes de organizar.", "error");
+      return;
+    }
+
+    const text = await complete({
+      task: "organize",
+      jsonMode: true,
+      messages: [
+        { role: "system", content: ORGANIZE_SYSTEM },
+        {
+          role: "user",
+          content:
+            `TRANSCRIÇÃO DA CONSULTA:\n${transcricao || "(vazio)"}\n\n` +
+            `ANOTAÇÕES DO PROFISSIONAL:\n${notas || "(vazio)"}`,
+        },
+      ],
+    });
+    if (text == null) return; // erro já sinalizado pelo useAi
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      toast("Não consegui interpretar a resposta da IA. Tente novamente.", "error");
+      return;
+    }
+
+    const updates: Record<string, string> = {};
+    let filled = 0;
+    let skipped = 0;
+    for (const f of ORGANIZE_FIELDS) {
+      const val = String(parsed[f.key] ?? "").trim();
+      if (!val) continue;
+      if ((a[f.key] || "").trim()) {
+        skipped++; // já preenchido pelo profissional — preserva
+        continue;
+      }
+      updates[f.key] = val;
+      filled++;
+    }
+
+    if (filled === 0) {
+      toast(
+        skipped > 0
+          ? "Os campos já têm conteúdo — nada foi sobrescrito."
+          : "Não encontrei informações para distribuir nos campos.",
+        "info",
+      );
+      return;
+    }
+
+    patch(updates as Partial<AnamneseSlice>);
+    toast(
+      `${filled} campo(s) preenchido(s)${skipped ? `, ${skipped} preservado(s)` : ""}. Revise antes de salvar.`,
+      "success",
+    );
+  };
 
   /** Helper: campo de texto longo com botão de transcrição opcional. */
   const TextField = ({
@@ -121,6 +224,58 @@ export default function AnamneseStep() {
               placeholder="Idade, sexo, ocupação, estado civil…"
             />
           </Field>
+        </div>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader
+          title="Transcrição do Atendimento"
+          subtitle="Grave a consulta uma única vez (ou cole o texto) e deixe a IA distribuir o conteúdo nos campos abaixo. As anotações do profissional ajudam a organização."
+        />
+        <div className="p-5">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <TranscribeButton
+              onTranscript={(t) =>
+                patch({
+                  transcricaoBruta:
+                    (a.transcricaoBruta ? a.transcricaoBruta + " " : "") + t,
+                })
+              }
+            />
+            <Button
+              type="button"
+              variant="ai"
+              size="sm"
+              loading={organizing}
+              icon={<Sparkles className="h-4 w-4" />}
+              onClick={organize}
+            >
+              Organizar nos campos
+            </Button>
+          </div>
+          <Field
+            label="Transcrição da consulta"
+            hint="Texto bruto do atendimento — gravado por voz ou colado. Editável."
+          >
+            <Textarea
+              value={a.transcricaoBruta}
+              onChange={(e) => patch({ transcricaoBruta: e.target.value })}
+              rows={6}
+              placeholder="Transcrição da conversa com o paciente…"
+            />
+          </Field>
+          <Field
+            label="Anotações do profissional"
+            hint="Cole aqui o que você anotou durante a consulta — serve de apoio para a IA organizar os campos."
+          >
+            <Textarea
+              value={a.anotacoes}
+              onChange={(e) => patch({ anotacoes: e.target.value })}
+              rows={4}
+              placeholder="Observações, hipóteses, lembretes…"
+            />
+          </Field>
+          <AiDisclaimer text="A organização automática preenche apenas campos vazios e nunca sobrescreve o que você já escreveu. Revise tudo — a decisão clínica é sempre do profissional." />
         </div>
       </Card>
 

@@ -48,6 +48,7 @@ export interface ExamWithPatient extends Exam {
 
 export type AiTask =
   | "synthesize" // sintetizar texto livre em campos estruturados
+  | "organize" // distribuir uma transcrição em múltiplos campos (JSON)
   | "suggest_diagnosis"
   | "suggest_differentials"
   | "suggest_pts"
@@ -67,6 +68,8 @@ export interface AiCompletionRequest {
   /** Contexto clínico opcional (achados do exame) para enriquecer o prompt. */
   context?: Record<string, unknown>;
   temperature?: number;
+  /** Exige que a IA responda com um objeto JSON (para distribuir em campos). */
+  jsonMode?: boolean;
 }
 
 export interface AiCompletionResponse {

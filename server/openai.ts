@@ -65,6 +65,8 @@ export async function chatComplete(opts: {
   messages: ChatMessage[];
   temperature?: number;
   injectMosp?: boolean;
+  /** Força a resposta a ser um objeto JSON (response_format json_object). */
+  jsonMode?: boolean;
 }): Promise<{ text: string; model: string }> {
   if (!client) throw new AiNotConfiguredError();
 
@@ -84,6 +86,7 @@ export async function chatComplete(opts: {
     model: TEXT_MODEL,
     messages,
     temperature: opts.temperature ?? 0.3,
+    ...(opts.jsonMode ? { response_format: { type: "json_object" as const } } : {}),
   });
 
   return {
