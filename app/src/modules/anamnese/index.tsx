@@ -339,7 +339,7 @@ export default function AnamneseStep() {
     >
       <Card className="mb-4">
         <CardHeader title="Contexto do Atendimento" />
-        <div className="grid gap-4 p-5 sm:grid-cols-2">
+        <div className="p-5">
           <Field label="Local do atendimento">
             <Select
               value={a.context}
@@ -352,13 +352,6 @@ export default function AnamneseStep() {
                 </option>
               ))}
             </Select>
-          </Field>
-          <Field label="Identificação (dados sociodemográficos)">
-            <Input
-              value={a.identificacao}
-              onChange={(e) => patch({ identificacao: e.target.value })}
-              placeholder="Idade, sexo, ocupação, estado civil…"
-            />
           </Field>
         </div>
       </Card>
@@ -409,6 +402,16 @@ export default function AnamneseStep() {
               onChange={(e) => patch({ anotacoes: e.target.value })}
               rows={4}
               placeholder="Observações, hipóteses, lembretes…"
+            />
+          </Field>
+          <Field
+            label="Identificação (dados sociodemográficos)"
+            hint="Idade, sexo, ocupação, estado civil. A IA preenche a partir da transcrição ao 'Organizar nos campos' — edite se necessário."
+          >
+            <Input
+              value={a.identificacao}
+              onChange={(e) => patch({ identificacao: e.target.value })}
+              placeholder="Idade, sexo, ocupação, estado civil…"
             />
           </Field>
           <AiDisclaimer text="A organização automática preenche apenas campos vazios e nunca sobrescreve o que você já escreveu. Revise tudo — a decisão clínica é sempre do profissional." />
