@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sparkles, Plus, Trash2, List } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea, Input, Select, Button } from "@/components/ui";
-import { TranscribeButton, AiAssistButton, AiDisclaimer, useAi } from "@/components/ai";
+import { TranscribeButton, AiDisclaimer, useAi } from "@/components/ai";
 import { useExamSlice } from "@/context/ExamContext";
 import { useToast } from "@/context/ToastContext";
 import { SLICE } from "@/modules/sliceKeys";
@@ -768,26 +768,9 @@ export default function AnamneseStep() {
       <Card>
         <CardHeader
           title="Exame Psíquico (Transcrição na Íntegra)"
-          subtitle="Registre o exame psíquico e, opcionalmente, sintetize com IA."
+          subtitle="Registre o exame psíquico na íntegra."
         />
         <div className="p-5">
-          <div className="mb-2 flex flex-wrap gap-2">
-            <AiAssistButton
-              label="Sintetizar e Preencher"
-              request={() => ({
-                task: "synthesize",
-                messages: [
-                  {
-                    role: "system",
-                    content:
-                      "Você é um psiquiatra. Sintetize o exame psíquico a seguir em um texto técnico, organizado por domínios semiológicos, claro e objetivo. Não invente dados.",
-                  },
-                  { role: "user", content: a.examePsiquico || "(sem conteúdo)" },
-                ],
-              })}
-              onResult={(text) => patch({ examePsiquicoSintese: text })}
-            />
-          </div>
           <Field label="Transcrição na íntegra">
             <Textarea
               value={a.examePsiquico}

@@ -1,6 +1,5 @@
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea } from "@/components/ui";
-import { AiAssistButton, AiDisclaimer } from "@/components/ai";
 import { useExamSlice } from "@/context/ExamContext";
 import { SLICE } from "@/modules/sliceKeys";
 
@@ -64,22 +63,6 @@ function TextField({
 
 export default function FenomenologiaStep() {
   const [s, patch] = useExamSlice<FenomenologiaSlice>(SLICE.fenomenologia, DEFAULTS);
-
-  /** Monta o conteúdo dos campos para envio à IA. */
-  const buildUserContent = () => {
-    const linhas = [
-      s.cenaEncontro && `Cena do encontro e modo de presença:\n${s.cenaEncontro}`,
-      s.fenomenoNuclear && `Fenômeno nuclear:\n${s.fenomenoNuclear}`,
-      s.temporalidadeVivida && `Temporalidade vivida:\n${s.temporalidadeVivida}`,
-      s.espacialidadeCorporeidade && `Espacialidade e corporeidade:\n${s.espacialidadeCorporeidade}`,
-      s.intersubjetividade && `Intersubjetividade (ser-com-o-outro):\n${s.intersubjetividade}`,
-      s.ipseidade && `Ipseidade / self:\n${s.ipseidade}`,
-      s.tonalidadeAfetiva && `Tonalidade afetiva de fundo (Stimmung):\n${s.tonalidadeAfetiva}`,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-    return linhas || "(nenhum campo preenchido)";
-  };
 
   return (
     <StepShell
@@ -179,30 +162,9 @@ export default function FenomenologiaStep() {
       <Card>
         <CardHeader
           title="Síntese Fenomenológica"
-          subtitle="Integração descritiva do caso — gerada a partir dos campos acima ou escrita manualmente."
+          subtitle="Integração descritiva do caso, redigida pelo profissional."
         />
         <div className="p-5">
-          <div className="mb-4 flex flex-wrap gap-2">
-            <AiAssistButton
-              label="Sintetizar (IA)"
-              request={() => ({
-                task: "synthesize",
-                messages: [
-                  {
-                    role: "system",
-                    content:
-                      "Você é um psiquiatra com formação em fenomenologia clínica (Husserl, Merleau-Ponty, Binswanger, Minkowski). Com base nos dados fornecidos, redija uma síntese fenomenológica descritiva e integrada do caso, articulando as categorias existenciais (temporalidade, espacialidade, corporeidade, intersubjetividade, ipseidade e tonalidade afetiva). Seja rigoroso, claro e clínico. Não invente dados além do que foi informado. Não emita diagnóstico — descreva a estrutura do vivido.",
-                  },
-                  {
-                    role: "user",
-                    content: buildUserContent(),
-                  },
-                ],
-              })}
-              onResult={(text) => patch({ sintese: text })}
-            />
-          </div>
-
           <Field
             label="8. Síntese fenomenológica"
             hint="Integração descritiva do caso: articule as categorias exploradas acima em uma narrativa coerente que capture a estrutura existencial do sofrimento vivido pelo paciente."
@@ -213,8 +175,6 @@ export default function FenomenologiaStep() {
               rows={8}
             />
           </Field>
-
-          {s.sintese && <AiDisclaimer />}
         </div>
       </Card>
     </StepShell>
