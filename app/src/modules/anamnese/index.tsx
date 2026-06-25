@@ -434,7 +434,7 @@ export default function AnamneseStep() {
       <Card className="mb-4">
         <CardHeader
           title="História do Uso de Substâncias"
-          subtitle="Núcleo da anamnese em reabilitação. Detalhe cada substância; aplique AUDIT/CIWA-Ar/COWS na etapa de Escalas."
+          subtitle="Opcional — preencha quando houver uso de substâncias. Detalhe cada substância; aplique AUDIT/CIWA-Ar/COWS na etapa de Escalas."
           actions={
             <Button
               type="button"
