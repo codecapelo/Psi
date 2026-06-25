@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useParams, useNavigate, Navigate, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ArrowLeft, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Check, X } from "lucide-react";
 import { ExamProvider, useExam } from "@/context/ExamContext";
 import { WIZARD_STEPS, getStepById, TOTAL_STEPS } from "@/modules/registry";
+import { isStepComplete } from "@/modules/completion";
 import type { WizardGroup, WizardStepDef } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,7 @@ export default function ExamWizardPage() {
 }
 
 function WizardInner({ step }: { step: WizardStepDef }) {
-  const { exam, isLoading } = useExam();
+  const { exam, isLoading, data } = useExam();
   const navigate = useNavigate();
 
   const grouped = useMemo(() => {
@@ -91,7 +92,9 @@ function WizardInner({ step }: { step: WizardStepDef }) {
               <div className="space-y-0.5">
                 {steps.map((s) => {
                   const active = s.id === step.id;
-                  const done = s.index < step.index;
+                  const complete = isStepComplete(s.id, data);
+                  // "passou" = etapa anterior à atual ainda não preenchida.
+                  const passedIncomplete = s.index < step.index && !complete;
                   return (
                     <button
                       key={s.id}
@@ -108,12 +111,20 @@ function WizardInner({ step }: { step: WizardStepDef }) {
                           "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
                           active
                             ? "bg-brand-600 text-white"
-                            : done
+                            : complete
                               ? "bg-emerald-500 text-white"
-                              : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
+                              : passedIncomplete
+                                ? "bg-red-500 text-white"
+                                : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
                         )}
                       >
-                        {done ? <Check className="h-3 w-3" /> : s.index}
+                        {!active && complete ? (
+                          <Check className="h-3 w-3" />
+                        ) : !active && passedIncomplete ? (
+                          <X className="h-3 w-3" />
+                        ) : (
+                          s.index
+                        )}
                       </span>
                       <span className="truncate">{s.shortTitle || s.title}</span>
                     </button>
