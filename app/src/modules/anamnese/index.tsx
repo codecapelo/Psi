@@ -310,7 +310,6 @@ function TextField({
   patch,
   hint,
   rows = 3,
-  transcribe = true,
 }: {
   label: string;
   field: StringFieldKey;
@@ -318,19 +317,9 @@ function TextField({
   patch: (updates: Partial<AnamneseSlice>) => void;
   hint?: string;
   rows?: number;
-  transcribe?: boolean;
 }) {
   return (
     <Field label={label} hint={hint}>
-      {transcribe && (
-        <div className="mb-2">
-          <TranscribeButton
-            onTranscript={(t) =>
-              patch({ [field]: (slice[field] ? slice[field] + " " : "") + t } as Partial<AnamneseSlice>)
-            }
-          />
-        </div>
-      )}
       <Textarea
         value={slice[field]}
         onChange={(e) => patch({ [field]: e.target.value } as Partial<AnamneseSlice>)}
@@ -614,7 +603,6 @@ export default function AnamneseStep() {
             patch={patch}
             label="Alergias e Reações Adversas"
             field="alergias"
-            transcribe={false}
             rows={2}
           />
           <TextField
@@ -622,7 +610,6 @@ export default function AnamneseStep() {
             patch={patch}
             label="Medicações de Uso Contínuo"
             field="medicacoes"
-            transcribe={false}
           />
         </div>
       </Card>
@@ -733,16 +720,6 @@ export default function AnamneseStep() {
             label="Observações"
             hint="Tolerância, abstinência, fissura, comportamentos de risco, tratamentos prévios e recaídas."
           >
-            <div className="mb-2">
-              <TranscribeButton
-                onTranscript={(t) =>
-                  patch({
-                    usoSubstanciasNotas:
-                      (a.usoSubstanciasNotas ? a.usoSubstanciasNotas + " " : "") + t,
-                  })
-                }
-              />
-            </div>
             <Textarea
               value={a.usoSubstanciasNotas}
               onChange={(e) => patch({ usoSubstanciasNotas: e.target.value })}
@@ -777,7 +754,6 @@ export default function AnamneseStep() {
             label="Exames Complementares"
             field="examesComplementares"
             hint="Laboratoriais e de imagem."
-            transcribe={false}
           />
           <TextField
             slice={a}
@@ -792,15 +768,10 @@ export default function AnamneseStep() {
       <Card>
         <CardHeader
           title="Exame Psíquico (Transcrição na Íntegra)"
-          subtitle="Registre o exame psíquico por voz ou texto e, opcionalmente, sintetize com IA."
+          subtitle="Registre o exame psíquico e, opcionalmente, sintetize com IA."
         />
         <div className="p-5">
           <div className="mb-2 flex flex-wrap gap-2">
-            <TranscribeButton
-              onTranscript={(t) =>
-                patch({ examePsiquico: (a.examePsiquico ? a.examePsiquico + " " : "") + t })
-              }
-            />
             <AiAssistButton
               label="Sintetizar e Preencher"
               request={() => ({

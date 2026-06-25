@@ -1,6 +1,6 @@
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea } from "@/components/ui";
-import { TranscribeButton, AiAssistButton, AiDisclaimer } from "@/components/ai";
+import { AiAssistButton, AiDisclaimer } from "@/components/ai";
 import { useExamSlice } from "@/context/ExamContext";
 import { SLICE } from "@/modules/sliceKeys";
 
@@ -8,8 +8,6 @@ import { SLICE } from "@/modules/sliceKeys";
 // Modelo de dados da Fenomenologia (fatia data.fenomenologia)
 // --------------------------------------------------------------------------
 interface FenomenologiaSlice {
-  /** Transcrição completa do exame, gravada uma única vez no início. */
-  transcricaoCompleta: string;
   cenaEncontro: string;
   fenomenoNuclear: string;
   temporalidadeVivida: string;
@@ -21,7 +19,6 @@ interface FenomenologiaSlice {
 }
 
 const DEFAULTS: FenomenologiaSlice = {
-  transcricaoCompleta: "",
   cenaEncontro: "",
   fenomenoNuclear: "",
   temporalidadeVivida: "",
@@ -71,7 +68,6 @@ export default function FenomenologiaStep() {
   /** Monta o conteúdo dos campos para envio à IA. */
   const buildUserContent = () => {
     const linhas = [
-      s.transcricaoCompleta && `Transcrição completa do exame:\n${s.transcricaoCompleta}`,
       s.cenaEncontro && `Cena do encontro e modo de presença:\n${s.cenaEncontro}`,
       s.fenomenoNuclear && `Fenômeno nuclear:\n${s.fenomenoNuclear}`,
       s.temporalidadeVivida && `Temporalidade vivida:\n${s.temporalidadeVivida}`,
@@ -90,37 +86,6 @@ export default function FenomenologiaStep() {
       title="Fenomenologia"
       description="Roteiro de Exame Fenomenológico — abordagem clínica, não diagnóstica. Descreva a experiência vivida do paciente a partir das categorias existenciais."
     >
-      {/* Transcrição completa — gravada uma única vez no início */}
-      <Card className="mb-4">
-        <CardHeader
-          title="Transcrição do Exame"
-          subtitle="Grave o exame fenomenológico por voz uma única vez (ou cole o texto). Em seguida descreva as categorias abaixo a partir desta transcrição."
-        />
-        <div className="p-5">
-          <div className="mb-3">
-            <TranscribeButton
-              onTranscript={(t) =>
-                patch({
-                  transcricaoCompleta:
-                    (s.transcricaoCompleta ? s.transcricaoCompleta + " " : "") + t,
-                })
-              }
-            />
-          </div>
-          <Field
-            label="Transcrição completa"
-            hint="Texto bruto do exame — gravado por voz ou colado. Editável."
-          >
-            <Textarea
-              value={s.transcricaoCompleta}
-              onChange={(e) => patch({ transcricaoCompleta: e.target.value })}
-              rows={6}
-              placeholder="Transcrição do exame fenomenológico…"
-            />
-          </Field>
-        </div>
-      </Card>
-
       {/* Bloco 1: Encontro */}
       <Card className="mb-4">
         <CardHeader
