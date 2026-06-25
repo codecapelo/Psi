@@ -1,4 +1,5 @@
-import { Sparkles, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Sparkles, Plus, Trash2, List } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea, Input, Select, Button } from "@/components/ui";
 import { TranscribeButton, AiAssistButton, AiDisclaimer, useAi } from "@/components/ai";
@@ -29,6 +30,170 @@ const EMPTY_SUBSTANCE: SubstanceRow = {
   ultimoUso: "",
   padrao: "",
 };
+
+// --------------------------------------------------------------------------
+// Opções pré-definidas das colunas da tabela de uso de substâncias.
+// Cada coluna é um dropdown; a opção "Outro (digitar)…" libera texto livre.
+// --------------------------------------------------------------------------
+const SUBSTANCIA_OPCOES = [
+  "Álcool",
+  "Tabaco/Nicotina",
+  "Maconha (Cannabis)",
+  "Cocaína (aspirada)",
+  "Crack",
+  "Anfetaminas/Estimulantes",
+  "Ecstasy/MDMA",
+  "LSD/Alucinógenos",
+  "Benzodiazepínicos",
+  "Opioides",
+  "Inalantes/Solventes",
+  "Cafeína",
+];
+
+const INICIO_OPCOES = [
+  "Infância (<12a)",
+  "Adolescência (12–17a)",
+  "Adulto jovem (18–24a)",
+  "Vida adulta (25–39a)",
+  "Meia-idade (≥40a)",
+];
+
+const VIA_OPCOES = [
+  "Oral (VO)",
+  "Fumada/Inalada",
+  "Intranasal (aspirada)",
+  "Injetável (EV)",
+  "Injetável (IM/SC)",
+  "Sublingual",
+  "Transdérmica",
+];
+
+const QUANTIDADE_OPCOES = [
+  "Baixa",
+  "Moderada",
+  "Alta",
+  "1–2 unidades/dia",
+  "3–5 unidades/dia",
+  "6–10 unidades/dia",
+  ">10 unidades/dia",
+];
+
+const FREQUENCIA_OPCOES = [
+  "Diária",
+  "Várias vezes ao dia",
+  "Quase diária",
+  "Fins de semana",
+  "2–3x/semana",
+  "Semanal",
+  "Quinzenal",
+  "Mensal",
+  "Esporádico/ocasional",
+  "Em abstinência",
+];
+
+const ULTIMO_USO_OPCOES = [
+  "Hoje",
+  "Ontem",
+  "Há 2–3 dias",
+  "Há 1 semana",
+  "Há 2 semanas",
+  "Há 1 mês",
+  "Há mais de 1 mês",
+  "Há mais de 6 meses",
+  "Em abstinência",
+];
+
+const PADRAO_OPCOES = [
+  "Uso experimental",
+  "Uso recreativo/ocasional",
+  "Uso nocivo/abuso",
+  "Dependência leve",
+  "Dependência moderada",
+  "Dependência grave",
+  "Em remissão inicial",
+  "Em remissão sustentada",
+  "Abstinente",
+];
+
+/** Sentinela do <option> que ativa o modo de digitação livre. */
+const OUTRO = "__outro__";
+
+/**
+ * Campo selecionável (dropdown) com uma opção "Outro (digitar)…" que troca
+ * para um input de texto livre. Usado nas células da tabela de substâncias.
+ *
+ * IMPORTANTE: componente de TOPO (fora do render do passo) para manter a
+ * identidade estável e não perder o foco do input a cada tecla.
+ */
+function ComboBox({
+  value,
+  onChange,
+  options,
+  placeholder = "Selecione…",
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+  ariaLabel?: string;
+}) {
+  const isPreset = value !== "" && options.includes(value);
+  // Modo livre quando o usuário escolheu "Outro" ou o valor atual (ex.: vindo
+  // da IA) não está entre as opções pré-definidas.
+  const [freeMode, setFreeMode] = useState(false);
+  const free = freeMode || (value !== "" && !isPreset);
+
+  if (free) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          autoFocus
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setFreeMode(false);
+            onChange("");
+          }}
+          aria-label="Voltar para a lista"
+          title="Voltar para a lista"
+          className="shrink-0 rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+        >
+          <List className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      value={isPreset ? value : ""}
+      aria-label={ariaLabel}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (v === OUTRO) {
+          setFreeMode(true);
+          onChange("");
+        } else {
+          onChange(v);
+        }
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+      <option value={OUTRO}>Outro (digitar)…</option>
+    </Select>
+  );
+}
 
 interface AnamneseSlice {
   context: string;
@@ -481,7 +646,7 @@ export default function AnamneseStep() {
         />
         <div className="p-5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse text-sm">
+            <table className="w-full min-w-[1040px] border-collapse text-sm">
               <thead>
                 <tr className="text-left text-xs font-medium text-slate-500 dark:text-slate-400">
                   <th className="pb-2 pr-2">Substância</th>
@@ -505,25 +670,25 @@ export default function AnamneseStep() {
                 {subs.map((row, i) => (
                   <tr key={i} className="align-top">
                     <td className="py-1 pr-2">
-                      <Input value={row.substancia} onChange={(e) => setRow(i, "substancia", e.target.value)} placeholder="Álcool" />
+                      <ComboBox value={row.substancia} onChange={(v) => setRow(i, "substancia", v)} options={SUBSTANCIA_OPCOES} placeholder="Substância…" ariaLabel="Substância" />
                     </td>
                     <td className="py-1 pr-2">
-                      <Input value={row.inicio} onChange={(e) => setRow(i, "inicio", e.target.value)} placeholder="15a" />
+                      <ComboBox value={row.inicio} onChange={(v) => setRow(i, "inicio", v)} options={INICIO_OPCOES} placeholder="Início…" ariaLabel="Início do uso" />
                     </td>
                     <td className="py-1 pr-2">
-                      <Input value={row.via} onChange={(e) => setRow(i, "via", e.target.value)} placeholder="VO" />
+                      <ComboBox value={row.via} onChange={(v) => setRow(i, "via", v)} options={VIA_OPCOES} placeholder="Via…" ariaLabel="Via de uso" />
                     </td>
                     <td className="py-1 pr-2">
-                      <Input value={row.quantidade} onChange={(e) => setRow(i, "quantidade", e.target.value)} placeholder="750 mL/dia" />
+                      <ComboBox value={row.quantidade} onChange={(v) => setRow(i, "quantidade", v)} options={QUANTIDADE_OPCOES} placeholder="Quantidade…" ariaLabel="Quantidade" />
                     </td>
                     <td className="py-1 pr-2">
-                      <Input value={row.frequencia} onChange={(e) => setRow(i, "frequencia", e.target.value)} placeholder="diária" />
+                      <ComboBox value={row.frequencia} onChange={(v) => setRow(i, "frequencia", v)} options={FREQUENCIA_OPCOES} placeholder="Frequência…" ariaLabel="Frequência" />
                     </td>
                     <td className="py-1 pr-2">
-                      <Input value={row.ultimoUso} onChange={(e) => setRow(i, "ultimoUso", e.target.value)} placeholder="há 10h" />
+                      <ComboBox value={row.ultimoUso} onChange={(v) => setRow(i, "ultimoUso", v)} options={ULTIMO_USO_OPCOES} placeholder="Último uso…" ariaLabel="Último uso" />
                     </td>
                     <td className="py-1 pr-2">
-                      <Input value={row.padrao} onChange={(e) => setRow(i, "padrao", e.target.value)} placeholder="dependência grave" />
+                      <ComboBox value={row.padrao} onChange={(v) => setRow(i, "padrao", v)} options={PADRAO_OPCOES} placeholder="Padrão…" ariaLabel="Padrão atual" />
                     </td>
                     <td className="py-1">
                       <button
