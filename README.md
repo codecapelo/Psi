@@ -41,10 +41,11 @@ Copie `.env.example` para `.env` (local) e configure no Railway. Veja descriçõ
 | `OPENAI_MODEL` | não | Modelo de texto (padrão `gpt-4o`) |
 | `OPENAI_TRANSCRIBE_MODEL` | não | Modelo de transcrição (padrão `whisper-1`) |
 | `AUTH_USERS` | **sim (produção)** | Profissionais autorizados, `email:senha` separados por vírgula. **Vazio = API sem autenticação.** |
-| `JWT_SECRET` | sim (produção) | Segredo p/ assinar tokens (≥16 chars). Ausente = segredo efêmero (desloga a cada boot). |
+| `JWT_SECRET` | sim (produção) | Segredo p/ assinar tokens (**≥32 chars**, ex.: `openssl rand -hex 32`). Ausente/curto = segredo efêmero (desloga a cada boot). |
 | `AUTH_TOKEN_TTL` | não | Validade do token em segundos (padrão `43200` = 12h) |
 | `CORS_ORIGIN` | não | Origens permitidas (lista). Vazio = somente same-origin (recomendado) |
 | `MOSP_AUTHORS` | não | E-mails com escrita no MOSP. Vazio = qualquer usuário autenticado |
+| `ADMIN_USERS` | recomendada (multiusuário) | Administradores: veem a trilha completa e podem **apagar todos os dados** (LGPD). Veja a regra de default abaixo. |
 | `PORT` | não | Porta do servidor (Railway injeta automaticamente) |
 
 > O app **sobe mesmo sem credenciais** (boot gracioso): sem `DATABASE_URL` os endpoints de dados
@@ -65,8 +66,11 @@ Copie `.env.example` para `.env` (local) e configure no Railway. Veja descriçõ
   profissional (`audit_log.actor`). São auditados também: **login**, **leitura de dados de pacientes**
   (inclusive buscas), **chamadas de IA** (metadados — tarefa/modelo/ator, nunca o conteúdo) e o
   **apagamento LGPD** (com contagens do que foi removido, em transação atômica).
-- **Acesso à trilha (RBAC):** com `AUDIT_ADMINS` definido, apenas os listados veem o log completo;
-  os demais veem somente as próprias ações.
+- **Administradores (`ADMIN_USERS`):** veem a trilha de auditoria completa (os demais veem só as
+  próprias ações) e são os **únicos** que podem executar o apagamento global de dados (`/privacy/wipe`).
+  Regra de default quando `ADMIN_USERS` está vazio: em **modo aberto** (dev) ou **usuário único**, esse
+  usuário é admin; com **múltiplos** profissionais e sem `ADMIN_USERS`, **ninguém** é admin — defina
+  `ADMIN_USERS` para liberar ações destrutivas.
 - **MOSP:** escrita nas memórias clínicas pode ser restrita a `MOSP_AUTHORS`.
 
 > ⚠️ **Transferência internacional (LGPD):** os recursos de IA enviam o conteúdo clínico para a

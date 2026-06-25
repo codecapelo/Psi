@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool, DbNotConfiguredError } from "../db.ts";
+import { requireAdmin } from "../auth.ts";
 
 export const privacyRouter = Router();
 
@@ -8,11 +9,12 @@ export const privacyRouter = Router();
  * Pacientes em cascata removem exames. Memórias e templates de usuário também
  * são removidos; modelos pré-instalados (builtin) são preservados.
  *
+ * Ação destrutiva e global → restrita a administradores (requireAdmin).
  * Tudo roda numa transação atômica: ou apaga e registra o comprovante, ou nada
  * muda. O comprovante (audit_log) inclui as contagens do que foi removido —
  * exigível como prova de exclusão (LGPD Art. 16/18).
  */
-privacyRouter.post("/privacy/wipe", async (req, res, next) => {
+privacyRouter.post("/privacy/wipe", requireAdmin, async (req, res, next) => {
   if (!pool) return next(new DbNotConfiguredError());
   const actor = req.user?.email ?? null;
   const client = await pool.connect();

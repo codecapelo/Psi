@@ -15,7 +15,8 @@
 //   JWT_SECRET       segredo para assinar tokens (>=32 chars; senão, efêmero)
 //   AUTH_TOKEN_TTL   validade do token em segundos (padrão 43200 = 12h)
 //   MOSP_AUTHORS     e-mails com permissão de escrita no MOSP (vazio = todos)
-//   AUDIT_ADMINS     e-mails que veem a trilha completa (vazio = todos veem)
+//   ADMIN_USERS      administradores: veem a trilha completa e podem executar
+//                    ações destrutivas (apagamento LGPD)
 // ==========================================================================
 
 import crypto from "node:crypto";
@@ -214,18 +215,42 @@ export function mospCanWrite(email?: string): boolean {
 }
 
 /**
- * Quem pode ver a trilha de auditoria completa. Se AUDIT_ADMINS estiver vazio,
- * todos os autenticados veem tudo (compatível com instalações de usuário único);
- * se definido, apenas os listados — os demais veem só as próprias ações.
+ * Administradores: veem a trilha de auditoria completa e podem executar ações
+ * destrutivas (apagamento LGPD). Regras:
+ *   • ADMIN_USERS definido  → apenas os e-mails listados.
+ *   • ADMIN_USERS vazio:
+ *       - modo aberto (sem AUTH_USERS, dev)        → todos são admin;
+ *       - instalação de usuário único              → o único profissional é admin;
+ *       - múltiplos usuários e sem ADMIN_USERS      → NINGUÉM é admin
+ *         (force a definição de ADMIN_USERS para liberar ações destrutivas).
  */
-export function isAuditAdmin(email?: string | null): boolean {
-  const admins = (process.env.AUDIT_ADMINS || "")
+export function isAdmin(email?: string | null): boolean {
+  const admins = (process.env.ADMIN_USERS || "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  if (admins.length === 0) return true;
-  if (!email) return false;
-  return admins.includes(email.trim().toLowerCase());
+  if (admins.length > 0) {
+    if (!email) return false;
+    return admins.includes(email.trim().toLowerCase());
+  }
+  if (!authConfigured()) return true; // modo aberto (dev)
+  return users().size === 1; // instalação de usuário único
+}
+
+/** Middleware: restringe a ação a administradores. */
+export function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (!isAdmin(req.user?.email)) {
+    res.status(403).json({
+      error:
+        "Ação restrita a administradores. Defina ADMIN_USERS no servidor para autorizar.",
+    });
+    return;
+  }
+  next();
 }
 
 /** Middleware: bloqueia escrita no MOSP para quem não é autor. */

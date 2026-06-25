@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { query } from "../db.ts";
-import { isAuditAdmin } from "../auth.ts";
+import { isAdmin } from "../auth.ts";
 
 export const auditRouter = Router();
 
@@ -19,10 +19,9 @@ auditRouter.get("/audit", async (req, res, next) => {
     const action = (req.query.action as string | undefined)?.toUpperCase();
     const valid = ["CREATE", "READ", "UPDATE", "DELETE"];
     const filter = action && valid.includes(action) ? action : null;
-    // RBAC: admins (ou instalação sem AUDIT_ADMINS) veem tudo; demais só as
-    // próprias ações.
+    // RBAC: administradores veem tudo; os demais, só as próprias ações.
     const me = req.user?.email ?? null;
-    const actorFilter = isAuditAdmin(me) ? null : me;
+    const actorFilter = isAdmin(me) ? null : me;
     const { rows } = await query<AuditRow>(
       `SELECT * FROM audit_log
        WHERE ($1::text IS NULL OR action = $1)

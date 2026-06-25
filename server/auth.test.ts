@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   __resetAuthCache,
   authConfigured,
-  isAuditAdmin,
+  isAdmin,
   mospCanWrite,
   signToken,
   verifyCredentials,
@@ -13,7 +13,7 @@ beforeEach(() => {
   process.env.JWT_SECRET = "test-secret-com-tamanho-suficiente-1234567890";
   process.env.AUTH_USERS = "dra.ana@clinica.com:senhaForte123,dr.bruno@clinica.com:outraSenha456";
   delete process.env.MOSP_AUTHORS;
-  delete process.env.AUDIT_ADMINS;
+  delete process.env.ADMIN_USERS;
   __resetAuthCache();
 });
 
@@ -92,16 +92,29 @@ describe("autorização MOSP", () => {
   });
 });
 
-describe("RBAC da trilha de auditoria", () => {
-  it("sem AUDIT_ADMINS, todos veem tudo", () => {
-    expect(isAuditAdmin("qualquer@x.com")).toBe(true);
-    expect(isAuditAdmin(undefined)).toBe(true);
+describe("admin (trilha completa + ações destrutivas)", () => {
+  it("sem ADMIN_USERS e MÚLTIPLOS usuários, ninguém é admin", () => {
+    // beforeEach configura 2 profissionais
+    expect(isAdmin("dra.ana@clinica.com")).toBe(false);
+    expect(isAdmin("dr.bruno@clinica.com")).toBe(false);
   });
 
-  it("com AUDIT_ADMINS, apenas listados são admin", () => {
-    process.env.AUDIT_ADMINS = "dra.ana@clinica.com";
-    expect(isAuditAdmin("dra.ana@clinica.com")).toBe(true);
-    expect(isAuditAdmin("dr.bruno@clinica.com")).toBe(false);
-    expect(isAuditAdmin(undefined)).toBe(false);
+  it("sem ADMIN_USERS e usuário ÚNICO, o único é admin", () => {
+    process.env.AUTH_USERS = "solo@clinica.com:Senha123456";
+    __resetAuthCache();
+    expect(isAdmin("solo@clinica.com")).toBe(true);
+  });
+
+  it("com ADMIN_USERS, apenas listados são admin", () => {
+    process.env.ADMIN_USERS = "dra.ana@clinica.com";
+    expect(isAdmin("dra.ana@clinica.com")).toBe(true);
+    expect(isAdmin("dr.bruno@clinica.com")).toBe(false);
+    expect(isAdmin(undefined)).toBe(false);
+  });
+
+  it("modo aberto (sem AUTH_USERS) → todos admin (dev)", () => {
+    process.env.AUTH_USERS = "";
+    __resetAuthCache();
+    expect(isAdmin("qualquer@x.com")).toBe(true);
   });
 });

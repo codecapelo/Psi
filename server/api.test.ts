@@ -71,3 +71,20 @@ describe("gate de autenticação", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("autorização de admin (wipe LGPD)", () => {
+  it("POST /api/privacy/wipe por não-admin → 403 (antes de tocar o banco)", async () => {
+    // Define um admin diferente da usuária autenticada.
+    process.env.ADMIN_USERS = "outro.admin@clinica.com";
+    __resetAuthCache();
+    const login = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "dra.ana@clinica.com", password: "senhaForte123" });
+    const res = await request(app)
+      .post("/api/privacy/wipe")
+      .set("Authorization", `Bearer ${login.body.token}`);
+    expect(res.status).toBe(403);
+    delete process.env.ADMIN_USERS;
+    __resetAuthCache();
+  });
+});
