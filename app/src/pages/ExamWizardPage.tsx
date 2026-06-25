@@ -1,38 +1,57 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams, useNavigate, Navigate, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ArrowLeft, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Check, X } from "lucide-react";
 import { ExamProvider, useExam } from "@/context/ExamContext";
-import { WIZARD_STEPS, getStepById, TOTAL_STEPS } from "@/modules/registry";
-import type { WizardGroup, WizardStepDef } from "@/lib/types";
+import { getStepsForTipo } from "@/modules/registry";
+import { isStepComplete } from "@/modules/completion";
+import type { WizardGroup } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: WizardGroup[] = ["Clínico", "Síntese", "Conclusão", "IA"];
 
+const TIPO_LABEL: Record<string, string> = {
+  admissao: "Admissão",
+  evolucao: "Evolução",
+  alta: "Alta",
+  consulta: "Consulta",
+};
+
 export default function ExamWizardPage() {
   const { examId, stepId } = useParams();
   if (!examId) return <Navigate to="/" replace />;
-  if (!stepId) return <Navigate to={`/exame/${examId}/anamnese`} replace />;
-  const step = getStepById(stepId);
-  if (!step) return <Navigate to={`/exame/${examId}/anamnese`} replace />;
 
   return (
     <ExamProvider examId={examId}>
-      <WizardInner step={step} />
+      <WizardInner stepId={stepId} />
     </ExamProvider>
   );
 }
 
-function WizardInner({ step }: { step: WizardStepDef }) {
-  const { exam, isLoading } = useExam();
+function WizardInner({ stepId }: { stepId?: string }) {
+  const { exam, isLoading, data } = useExam();
   const navigate = useNavigate();
 
-  const grouped = useMemo(() => {
-    return GROUP_ORDER.map((g) => ({
-      group: g,
-      steps: WIZARD_STEPS.filter((s) => s.group === g),
-    })).filter((x) => x.steps.length > 0);
-  }, []);
+  const tipo = exam?.tipo ?? "consulta";
+  const steps = useMemo(() => getStepsForTipo(tipo), [tipo]);
+
+  const grouped = useMemo(
+    () =>
+      GROUP_ORDER.map((g) => ({
+        group: g,
+        steps: steps.filter((s) => s.group === g),
+      })).filter((x) => x.steps.length > 0),
+    [steps],
+  );
+
+  const current = steps.find((s) => s.id === stepId) ?? null;
+
+  // Quando a rota não corresponde a uma etapa do tipo, vai para a primeira.
+  useEffect(() => {
+    if (exam && !current) {
+      navigate(`/exame/${exam.id}/${steps[0].id}`, { replace: true });
+    }
+  }, [exam, current, steps, navigate]);
 
   if (isLoading) {
     return (
@@ -52,9 +71,13 @@ function WizardInner({ step }: { step: WizardStepDef }) {
     );
   }
 
-  const prev = WIZARD_STEPS.find((s) => s.index === step.index - 1);
-  const next = WIZARD_STEPS.find((s) => s.index === step.index + 1);
+  const step = current ?? steps[0];
+  const idx = steps.findIndex((s) => s.id === step.id);
+  const total = steps.length;
+  const prev = steps[idx - 1];
+  const next = steps[idx + 1];
   const go = (id: string) => navigate(`/exame/${exam.id}/${id}`);
+  const finish = () => navigate(`/pacientes/${exam.patientId}/historico`);
 
   const Step = step.Component;
 
@@ -64,34 +87,41 @@ function WizardInner({ step }: { step: WizardStepDef }) {
       <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white lg:flex dark:border-slate-800 dark:bg-slate-900">
         <div className="border-b border-slate-100 p-4 dark:border-slate-800">
           <Link
-            to="/"
+            to={`/pacientes/${exam.patientId}/historico`}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"
           >
-            <ArrowLeft className="h-4 w-4" /> Pacientes
+            <ArrowLeft className="h-4 w-4" /> Cronologia
           </Link>
-          <div className="mt-2 truncate font-semibold text-slate-900 dark:text-slate-100">
-            {exam.patient.name}
+          <div className="mt-2 flex items-center gap-2">
+            <span className="truncate font-semibold text-slate-900 dark:text-slate-100">
+              {exam.patient.name}
+            </span>
+            <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+              {TIPO_LABEL[tipo] ?? tipo}
+            </span>
           </div>
           <div className="text-xs text-slate-400">
-            Etapa {step.index} de {TOTAL_STEPS}
+            Etapa {idx + 1} de {total}
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             <div
               className="h-full rounded-full bg-brand-500 transition-all"
-              style={{ width: `${(step.index / TOTAL_STEPS) * 100}%` }}
+              style={{ width: `${((idx + 1) / total) * 100}%` }}
             />
           </div>
         </div>
         <nav className="flex-1 space-y-4 p-3">
-          {grouped.map(({ group, steps }) => (
+          {grouped.map(({ group, steps: gsteps }) => (
             <div key={group}>
               <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {group}
               </p>
               <div className="space-y-0.5">
-                {steps.map((s) => {
+                {gsteps.map((s) => {
                   const active = s.id === step.id;
-                  const done = s.index < step.index;
+                  const complete = isStepComplete(s.id, data);
+                  const sIdx = steps.findIndex((x) => x.id === s.id);
+                  const passedIncomplete = sIdx < idx && !complete;
                   return (
                     <button
                       key={s.id}
@@ -108,12 +138,20 @@ function WizardInner({ step }: { step: WizardStepDef }) {
                           "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
                           active
                             ? "bg-brand-600 text-white"
-                            : done
+                            : complete
                               ? "bg-emerald-500 text-white"
-                              : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
+                              : passedIncomplete
+                                ? "bg-red-500 text-white"
+                                : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
                         )}
                       >
-                        {done ? <Check className="h-3 w-3" /> : s.index}
+                        {!active && complete ? (
+                          <Check className="h-3 w-3" />
+                        ) : !active && passedIncomplete ? (
+                          <X className="h-3 w-3" />
+                        ) : (
+                          sIdx + 1
+                        )}
                       </span>
                       <span className="truncate">{s.shortTitle || s.title}</span>
                     </button>
@@ -140,7 +178,7 @@ function WizardInner({ step }: { step: WizardStepDef }) {
             {prev ? prev.shortTitle || prev.title : "Início"}
           </Button>
           <span className="text-xs text-slate-400">
-            {step.index} / {TOTAL_STEPS}
+            {idx + 1} / {total}
           </span>
           {next ? (
             <Button onClick={() => go(next.id)}>
@@ -148,7 +186,7 @@ function WizardInner({ step }: { step: WizardStepDef }) {
               <ChevronRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button variant="primary" onClick={() => navigate("/")}>
+            <Button variant="primary" onClick={finish}>
               Concluir
               <Check className="h-4 w-4" />
             </Button>

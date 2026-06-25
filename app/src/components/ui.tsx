@@ -212,19 +212,29 @@ export function CheckboxItem({
   onChange,
   label,
   tooltip,
+  disabled,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
   tooltip?: string;
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
+    <label
+      className={cn(
+        "flex items-center gap-2 rounded-md px-2 py-1.5",
+        disabled
+          ? "cursor-not-allowed opacity-60"
+          : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
+      )}
+    >
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
+        className="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed dark:border-slate-600 dark:bg-slate-800"
       />
       <span className="text-sm text-slate-700 dark:text-slate-200">{label}</span>
       {tooltip && <Tooltip text={tooltip} />}

@@ -1,10 +1,111 @@
+import { Fragment } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FilePlus2, FileText, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  Trash2,
+  Lock,
+  DoorOpen,
+  Activity,
+  LogOut,
+  Plus,
+  Stethoscope,
+} from "lucide-react";
 import apiClient from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { Button, Card, Badge, EmptyState, Spinner } from "@/components/ui";
+import type { Exam, EpisodeWithExams } from "@/lib/types";
+
+// --------------------------------------------------------------------------
+// Apresentação dos tipos de atendimento
+// --------------------------------------------------------------------------
+const ENCOUNTER_META: Record<
+  string,
+  { label: string; icon: typeof FileText; color: "slate" | "green" | "brand" | "amber" }
+> = {
+  admissao: { label: "Admissão", icon: DoorOpen, color: "brand" },
+  evolucao: { label: "Evolução", icon: Activity, color: "slate" },
+  alta: { label: "Alta", icon: LogOut, color: "green" },
+  consulta: { label: "Consulta", icon: FileText, color: "slate" },
+};
+
+const EPISODE_LABEL: Record<string, string> = {
+  internacao: "Internação",
+  ambulatorial: "Ambulatorial",
+  consulta: "Consulta avulsa",
+};
+
+/** Rótulo do intervalo entre dois atendimentos. */
+function gapLabel(fromIso: string, toIso: string): string {
+  const days = Math.round(
+    (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000,
+  );
+  if (days <= 0) return "mesmo dia";
+  if (days === 1) return "1 dia";
+  if (days < 30) return `${days} dias`;
+  const months = Math.round(days / 30);
+  return months === 1 ? "1 mês" : `${months} meses`;
+}
+
+// --------------------------------------------------------------------------
+// Nó de atendimento na linha do tempo
+// --------------------------------------------------------------------------
+function EncounterNode({
+  exam,
+  onOpen,
+  onDelete,
+}: {
+  exam: Exam;
+  onOpen: () => void;
+  onDelete?: () => void;
+}) {
+  const meta = ENCOUNTER_META[exam.tipo ?? "consulta"] ?? ENCOUNTER_META.consulta;
+  const Icon = meta.icon;
+  return (
+    <div className="group relative flex w-40 shrink-0 flex-col rounded-lg border border-slate-200 bg-white p-3 transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
+      <button onClick={onOpen} className="text-left">
+        <div className="flex items-center gap-1.5">
+          <Icon className="h-4 w-4 text-brand-500" />
+          <Badge color={meta.color}>{meta.label}</Badge>
+        </div>
+        <div className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">
+          {formatDate(exam.createdAt)}
+        </div>
+        <div className="text-xs text-slate-400">{formatDate(exam.createdAt, true).split(" ")[1]}</div>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          {exam.lockedAt ? (
+            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+              <Lock className="h-3 w-3" /> Assinada
+            </span>
+          ) : (
+            <span className="text-xs text-amber-600 dark:text-amber-400">Em aberto</span>
+          )}
+        </div>
+      </button>
+      {onDelete && !exam.lockedAt && (
+        <button
+          onClick={onDelete}
+          title="Excluir atendimento"
+          className="absolute right-1 top-1 rounded p-1 text-slate-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Conector horizontal entre nós, com o intervalo de tempo. */
+function Connector({ label }: { label: string }) {
+  return (
+    <div className="flex w-16 shrink-0 flex-col items-center justify-center px-1 pt-6">
+      <span className="whitespace-nowrap text-[10px] text-slate-400">{label}</span>
+      <div className="mt-1 h-px w-full bg-slate-300 dark:bg-slate-700" />
+    </div>
+  );
+}
 
 export default function PatientHistoryPage() {
   const { patientId } = useParams();
@@ -17,28 +118,81 @@ export default function PatientHistoryPage() {
     queryFn: () => apiClient.patients.get(patientId!),
     enabled: !!patientId,
   });
+  const episodesQ = useQuery({
+    queryKey: ["episodes", patientId],
+    queryFn: () => apiClient.episodes.listByPatient(patientId!),
+    enabled: !!patientId,
+  });
   const examsQ = useQuery({
     queryKey: ["exams", patientId],
     queryFn: () => apiClient.exams.listByPatient(patientId!),
     enabled: !!patientId,
   });
 
-  const createExam = useMutation({
-    mutationFn: () => apiClient.exams.create(patientId!),
-    onSuccess: (exam) => navigate(`/exame/${exam.id}`),
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["episodes", patientId] });
+    qc.invalidateQueries({ queryKey: ["exams", patientId] });
+  };
+
+  // Marca a cronologia como obsoleta e abre o atendimento recém-criado. Sem a
+  // invalidação, a lista (staleTime 30s) mostraria o estado antigo ao voltar.
+  const openFresh = (exam: { id: string }) => {
+    invalidate();
+    navigate(`/exame/${exam.id}`);
+  };
+
+  const newInternacao = useMutation({
+    mutationFn: () => apiClient.episodes.startInternacao(patientId!),
+    onSuccess: openFresh,
+    onError: () => toast("Erro ao iniciar a internação.", "error"),
   });
+
+  const newConsulta = useMutation({
+    mutationFn: () => apiClient.exams.create(patientId!),
+    onSuccess: openFresh,
+    onError: () => toast("Erro ao criar a consulta.", "error"),
+  });
+
+  const addEvolucao = useMutation({
+    mutationFn: (episodeId: string) => apiClient.episodes.addExam(episodeId, "evolucao"),
+    onSuccess: openFresh,
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : "Erro ao criar a evolução.", "error"),
+  });
+
+  const darAlta = useMutation({
+    mutationFn: (episodeId: string) => apiClient.episodes.addExam(episodeId, "alta"),
+    onSuccess: openFresh,
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : "Erro ao registrar a alta.", "error"),
+  });
+
   const deleteExam = useMutation({
     mutationFn: (id: string) => apiClient.exams.remove(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["exams", patientId] });
-      toast("Exame removido.", "success");
+      invalidate();
+      toast("Atendimento removido.", "success");
     },
   });
 
-  const exams = examsQ.data ?? [];
+  const episodes = episodesQ.data ?? [];
+  const looseExams = (examsQ.data ?? [])
+    .filter((e) => !e.episodeId)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const loading = episodesQ.isLoading || examsQ.isLoading;
+  const hasError = episodesQ.isError || examsQ.isError;
+  const isEmpty = !loading && !hasError && episodes.length === 0 && looseExams.length === 0;
+  const busy =
+    newInternacao.isPending ||
+    newConsulta.isPending ||
+    addEvolucao.isPending ||
+    darAlta.isPending;
+
+  const openExam = (id: string) => navigate(`/exame/${id}`);
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="mx-auto max-w-6xl p-6">
       <Link
         to="/"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"
@@ -46,66 +200,192 @@ export default function PatientHistoryPage() {
         <ArrowLeft className="h-4 w-4" /> Pacientes
       </Link>
 
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {patientQ.data?.name ?? "Histórico"}
+            {patientQ.data?.name ?? "Cronologia"}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Histórico de exames
+            Cronologia de atendimentos — internações, evoluções, altas e consultas.
           </p>
         </div>
-        <Button
-          icon={<FilePlus2 className="h-4 w-4" />}
-          loading={createExam.isPending}
-          onClick={() => createExam.mutate()}
-        >
-          Novo Exame
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            icon={<FileText className="h-4 w-4" />}
+            loading={newConsulta.isPending}
+            disabled={busy}
+            onClick={() => newConsulta.mutate()}
+          >
+            Consulta avulsa
+          </Button>
+          <Button
+            icon={<DoorOpen className="h-4 w-4" />}
+            loading={newInternacao.isPending}
+            disabled={busy}
+            onClick={() => newInternacao.mutate()}
+          >
+            Nova internação
+          </Button>
+        </div>
       </div>
 
-      {examsQ.isLoading ? (
+      {loading ? (
         <div className="flex justify-center py-12">
           <Spinner />
         </div>
-      ) : exams.length === 0 ? (
+      ) : hasError ? (
         <EmptyState
-          icon={<FileText className="h-10 w-10" />}
-          title="Nenhum exame registrado"
-          description="Inicie o primeiro exame deste paciente."
+          icon={<Stethoscope className="h-10 w-10" />}
+          title="Não foi possível carregar a cronologia"
+          description="Houve um erro ao buscar os atendimentos deste paciente. Tente novamente."
+          action={
+            <Button
+              variant="outline"
+              onClick={() => {
+                episodesQ.refetch();
+                examsQ.refetch();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          }
+        />
+      ) : isEmpty ? (
+        <EmptyState
+          icon={<Stethoscope className="h-10 w-10" />}
+          title="Nenhum atendimento registrado"
+          description="Inicie uma internação (admissão → evoluções → alta) ou registre uma consulta avulsa."
         />
       ) : (
-        <div className="space-y-2">
-          {exams.map((e) => (
-            <Card key={e.id} className="flex items-center justify-between p-4">
-              <button
-                className="min-w-0 flex-1 text-left"
-                onClick={() => navigate(`/exame/${e.id}`)}
-              >
-                <div className="font-medium text-slate-900 dark:text-slate-100">
-                  Exame de {formatDate(e.createdAt, true)}
-                </div>
-                <div className="mt-0.5 flex items-center gap-2">
-                  <Badge color={e.status === "concluido" ? "green" : "amber"}>
-                    {e.status === "concluido" ? "Concluído" : "Em andamento"}
-                  </Badge>
-                  <span className="text-xs text-slate-400">
-                    atualizado {formatDate(e.updatedAt, true)}
-                  </span>
-                </div>
-              </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                title="Excluir exame"
-                onClick={() => deleteExam.mutate(e.id)}
-              >
-                <Trash2 className="h-4 w-4 text-red-500" />
-              </Button>
-            </Card>
+        <div className="space-y-4">
+          {/* Episódios (internações etc.) */}
+          {episodes.map((ep) => (
+            <EpisodeTrack
+              key={ep.id}
+              episode={ep}
+              busy={busy}
+              onOpen={openExam}
+              onDelete={(id) => deleteExam.mutate(id)}
+              onAddEvolucao={() => addEvolucao.mutate(ep.id)}
+              onDarAlta={() => darAlta.mutate(ep.id)}
+            />
           ))}
+
+          {/* Consultas avulsas (sem episódio) */}
+          {looseExams.length > 0 && (
+            <Card className="p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Badge color="slate">{EPISODE_LABEL.consulta}</Badge>
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  Atendimentos avulsos
+                </span>
+              </div>
+              <div className="flex items-stretch overflow-x-auto pb-2">
+                {looseExams.map((ex, i) => (
+                  <Fragment key={ex.id}>
+                    {i > 0 && <Connector label={gapLabel(looseExams[i - 1].createdAt, ex.createdAt)} />}
+                    <EncounterNode
+                      exam={ex}
+                      onOpen={() => openExam(ex.id)}
+                      onDelete={() => deleteExam.mutate(ex.id)}
+                    />
+                  </Fragment>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Faixa horizontal de um episódio
+// --------------------------------------------------------------------------
+function EpisodeTrack({
+  episode,
+  busy,
+  onOpen,
+  onDelete,
+  onAddEvolucao,
+  onDarAlta,
+}: {
+  episode: EpisodeWithExams;
+  busy: boolean;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+  onAddEvolucao: () => void;
+  onDarAlta: () => void;
+}) {
+  const exams = [...episode.exams].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+  const aberto = episode.status === "aberto";
+  const isInternacao = episode.tipo === "internacao";
+
+  return (
+    <Card className="p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Badge color={isInternacao ? "brand" : "slate"}>
+            {EPISODE_LABEL[episode.tipo] ?? episode.tipo}
+          </Badge>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            {episode.titulo || formatDate(episode.openedAt)}
+          </span>
+          <span className="text-xs text-slate-400">
+            {formatDate(episode.openedAt)}
+            {episode.closedAt ? ` → ${formatDate(episode.closedAt)}` : ""}
+          </span>
+          <Badge color={aberto ? "amber" : "green"}>{aberto ? "Aberto" : "Encerrado"}</Badge>
+        </div>
+      </div>
+
+      <div className="flex items-stretch overflow-x-auto pb-2">
+        {exams.map((ex, i) => (
+          <Fragment key={ex.id}>
+            {i > 0 && <Connector label={gapLabel(exams[i - 1].createdAt, ex.createdAt)} />}
+            <EncounterNode
+              exam={ex}
+              onOpen={() => onOpen(ex.id)}
+              onDelete={() => onDelete(ex.id)}
+            />
+          </Fragment>
+        ))}
+
+        {/* Ações da internação aberta */}
+        {aberto && isInternacao && (
+          <>
+            {exams.length > 0 && <Connector label="" />}
+            <div className="flex w-44 shrink-0 flex-col justify-center gap-2 rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-700">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Plus className="h-4 w-4" />}
+                disabled={busy}
+                onClick={onAddEvolucao}
+              >
+                Nova evolução
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<LogOut className="h-4 w-4" />}
+                disabled={busy}
+                onClick={onDarAlta}
+              >
+                Dar alta
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {aberto && isInternacao && exams.length > 0 && !exams.some((e) => e.tipo === "alta") && (
+        <p className="mt-1 text-xs text-slate-400">
+          Internação aberta — registre evoluções e finalize com a alta.
+        </p>
+      )}
+    </Card>
   );
 }

@@ -4,6 +4,7 @@ import { hasAi, TEXT_MODEL } from "../openai.ts";
 import { authRouter, requireAuth, isAdmin } from "../auth.ts";
 import { patientsRouter } from "./patients.ts";
 import { examsRouter } from "./exams.ts";
+import { episodesRouter } from "./episodes.ts";
 import { aiRouter } from "./ai.ts";
 import { auditRouter } from "./audit.ts";
 import { mospRouter } from "./mosp.ts";
@@ -40,6 +41,7 @@ apiRouter.get("/auth/me", (req, res) => {
 
 apiRouter.use(patientsRouter);
 apiRouter.use(examsRouter);
+apiRouter.use(episodesRouter);
 apiRouter.use(aiRouter);
 apiRouter.use(auditRouter);
 apiRouter.use(mospRouter);

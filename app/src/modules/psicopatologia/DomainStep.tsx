@@ -1,6 +1,5 @@
 import { StepShell } from "@/components/StepShell";
 import { Card, CheckboxItem, Field, Textarea, Button } from "@/components/ui";
-import { TranscribeButton } from "@/components/ai";
 import { useExamSlice } from "@/context/ExamContext";
 import { SLICE } from "@/modules/sliceKeys";
 import { getDomain } from "./domains";
@@ -78,15 +77,8 @@ export function makeDomainStep(domainId: string) {
         <Card className="mt-4 p-5">
           <Field
             label="Observações / descrição livre"
-            hint="Detalhe os achados deste domínio. Use a transcrição por voz se desejar."
+            hint="Detalhe os achados deste domínio."
           >
-            <div className="mb-2">
-              <TranscribeButton
-                onTranscript={(t) =>
-                  setState({ notes: (state.notes ? state.notes + " " : "") + t })
-                }
-              />
-            </div>
             <Textarea
               value={state.notes}
               onChange={(e) => setState({ notes: e.target.value })}

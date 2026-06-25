@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import type { Exam, ExamData, ExamStatus, ExamWithPatient } from "@/lib/types";
 
@@ -24,9 +24,13 @@ interface ExamCtx {
   updateSlice: (key: string, value: unknown) => void;
   /** Lê o JSON do exame mais recente (ref síncrona, válida fora do render). */
   getData: () => ExamData;
-  /** Força o flush imediato do que estiver pendente. */
-  flush: () => Promise<void>;
+  /** Força o flush imediato do que estiver pendente. Retorna false se falhou. */
+  flush: () => Promise<boolean>;
   setStatus: (status: ExamStatus) => Promise<void>;
+  /** Documento assinado/imutável — edições são ignoradas. */
+  locked: boolean;
+  /** Assina o atendimento (gera hash, torna imutável). */
+  lock: () => Promise<void>;
   refetch: () => void;
 }
 
@@ -41,6 +45,7 @@ export function ExamProvider({
   examId: string;
   children: ReactNode;
 }) {
+  const qc = useQueryClient();
   const query = useQuery({
     queryKey: ["exam", examId],
     queryFn: () => apiClient.exams.get(examId),
@@ -56,6 +61,11 @@ export function ExamProvider({
   // ciclo de render (ex.: aplicar resultado de IA após um await) — evita
   // sobrescrever edições feitas enquanto a operação assíncrona estava pendente.
   const dataRef = useRef<ExamData>({});
+  // Espelho síncrono do estado "assinado" — consultado por updateSlice sem
+  // recriar o callback a cada mudança do exame.
+  const lockedRef = useRef(false);
+
+  const locked = !!query.data?.lockedAt;
 
   // Sincroniza o estado local quando o exame carrega.
   useEffect(() => {
@@ -63,22 +73,25 @@ export function ExamProvider({
       const d = query.data.data || {};
       dataRef.current = d;
       setData(d);
+      lockedRef.current = !!query.data.lockedAt;
     }
   }, [query.data]);
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (): Promise<boolean> => {
     if (timerRef.current) clearTimeout(timerRef.current);
     const patch = pendingRef.current;
-    if (!patch || Object.keys(patch).length === 0) return;
+    if (!patch || Object.keys(patch).length === 0) return true;
     pendingRef.current = {};
     setSaveState("saving");
     try {
       await apiClient.exams.patchData(examId, patch);
       setSaveState("saved");
+      return true;
     } catch {
       setSaveState("error");
       // Reagenda o patch que falhou para nova tentativa.
       pendingRef.current = { ...patch, ...pendingRef.current };
+      return false;
     }
   }, [examId]);
 
@@ -89,6 +102,8 @@ export function ExamProvider({
 
   const updateSlice = useCallback(
     (key: string, value: unknown) => {
+      // Documento assinado é imutável: ignora qualquer edição.
+      if (lockedRef.current) return;
       // Atualiza a ref síncrona ANTES do setData, para que merges/leituras
       // subsequentes no mesmo tick (ou em callbacks async) já enxerguem o valor.
       dataRef.current = { ...dataRef.current, [key]: value };
@@ -101,6 +116,35 @@ export function ExamProvider({
   );
 
   const getData = useCallback(() => dataRef.current, []);
+
+  const lock = useCallback(async () => {
+    // 1) Bloqueia novas edições ANTES de tudo, para nada escapar durante a
+    //    assinatura, e cancela o autosave agendado.
+    lockedRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    // 2) Persiste o que estiver pendente. Se a gravação falhar, NÃO assina —
+    //    senão lacraríamos um documento sem as últimas edições do profissional.
+    const saved = await flush();
+    if (!saved) {
+      lockedRef.current = !!query.data?.lockedAt; // reverte: edições voltam a ser possíveis
+      throw new Error(
+        "Não foi possível salvar as alterações antes de assinar. Verifique a conexão e tente novamente.",
+      );
+    }
+    // 3) Tudo salvo e bloqueado — assina.
+    try {
+      await apiClient.exams.lock(examId);
+    } catch (err) {
+      lockedRef.current = !!query.data?.lockedAt;
+      throw err;
+    }
+    const pid = query.data?.patientId;
+    if (pid) {
+      qc.invalidateQueries({ queryKey: ["episodes", pid] });
+      qc.invalidateQueries({ queryKey: ["exams", pid] });
+    }
+    query.refetch();
+  }, [examId, flush, query, qc]);
 
   const setStatus = useCallback(
     async (status: ExamStatus) => {
@@ -132,9 +176,11 @@ export function ExamProvider({
       getData,
       flush,
       setStatus,
+      locked,
+      lock,
       refetch: query.refetch,
     }),
-    [examId, query.data, query.isLoading, data, saveState, updateSlice, getData, flush, setStatus, query.refetch],
+    [examId, query.data, query.isLoading, data, saveState, updateSlice, getData, flush, setStatus, locked, lock, query.refetch],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

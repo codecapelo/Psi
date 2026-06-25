@@ -8,6 +8,10 @@ import type {
   AiTranscriptionResponse,
   AuditEntry,
   AuthUser,
+  EncounterTipo,
+  Episode,
+  EpisodeTipo,
+  EpisodeWithExams,
   Exam,
   ExamData,
   ExamWithPatient,
@@ -158,7 +162,36 @@ export const exams = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  /** Assina o atendimento: torna-o imutável e gera o hash de integridade. */
+  lock: (id: string) => request<Exam>(`/exams/${id}/lock`, { method: "POST" }),
   remove: (id: string) => request<void>(`/exams/${id}`, { method: "DELETE" }),
+};
+
+// --------------------------------------------------------------------------
+// Episódios de cuidado (camada longitudinal)
+// --------------------------------------------------------------------------
+export const episodes = {
+  listByPatient: (patientId: string) =>
+    request<EpisodeWithExams[]>(`/patients/${patientId}/episodes`),
+  create: (patientId: string, data: { tipo: EpisodeTipo; titulo?: string | null }) =>
+    request<Episode>(`/patients/${patientId}/episodes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  /** Abre uma internação (episódio + admissão) atomicamente; devolve a admissão. */
+  startInternacao: (patientId: string) =>
+    request<Exam>(`/patients/${patientId}/internacao`, { method: "POST" }),
+  /** Cria um atendimento dentro do episódio (evolução já vem semeada). */
+  addExam: (episodeId: string, tipo: EncounterTipo) =>
+    request<Exam>(`/episodes/${episodeId}/exams`, {
+      method: "POST",
+      body: JSON.stringify({ tipo }),
+    }),
+  update: (id: string, data: { status?: "aberto" | "encerrado"; titulo?: string | null }) =>
+    request<Episode>(`/episodes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };
 
 // --------------------------------------------------------------------------
@@ -275,6 +308,7 @@ export const apiClient = {
   users,
   patients,
   exams,
+  episodes,
   ai,
   audit,
   mosp,
