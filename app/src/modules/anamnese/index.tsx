@@ -131,7 +131,7 @@ const ORGANIZE_SYSTEM =
   ORGANIZE_FIELDS.map((f) => `- "${f.key}": ${f.label}`).join("\n");
 
 export default function AnamneseStep() {
-  const [a, patch] = useExamSlice<AnamneseSlice>(SLICE.anamnese, DEFAULTS);
+  const [a, patch, , getLatest] = useExamSlice<AnamneseSlice>(SLICE.anamnese, DEFAULTS);
   const { toast } = useToast();
   const { complete, loading: organizing } = useAi();
 
@@ -171,13 +171,16 @@ export default function AnamneseStep() {
       return;
     }
 
+    // Lê a fatia MAIS RECENTE (não o snapshot do clique): se o profissional
+    // editou um campo enquanto a IA respondia, esse campo é preservado.
+    const latest = getLatest();
     const updates: Record<string, string> = {};
     let filled = 0;
     let skipped = 0;
     for (const f of ORGANIZE_FIELDS) {
       const val = String(parsed[f.key] ?? "").trim();
       if (!val) continue;
-      if ((a[f.key] || "").trim()) {
+      if ((latest[f.key] || "").trim()) {
         skipped++; // já preenchido pelo profissional — preserva
         continue;
       }
@@ -217,7 +220,6 @@ export default function AnamneseStep() {
       toast("Grave/cole a transcrição ou as notas de uso antes de extrair.", "error");
       return;
     }
-    const hasSubs = subs.some((r) => r.substancia.trim());
     const text = await complete({
       task: "organize",
       jsonMode: true,
@@ -262,12 +264,15 @@ export default function AnamneseStep() {
       })
       .filter((r) => r.substancia);
 
+    // Estado mais recente (preserva edições feitas durante a chamada da IA).
+    const latest = getLatest();
+    const hasSubs = (latest.substancias ?? []).some((r) => r.substancia.trim());
     const updates: Partial<AnamneseSlice> = {};
     if (rows.length && !hasSubs) updates.substancias = rows;
     const droga = String(parsed.drogaEscolha ?? "").trim();
-    if (droga && !a.drogaEscolha.trim()) updates.drogaEscolha = droga;
+    if (droga && !latest.drogaEscolha.trim()) updates.drogaEscolha = droga;
     const crit = String(parsed.criteriosTUS ?? "").trim();
-    if (crit && !a.criteriosTUS.trim()) updates.criteriosTUS = crit;
+    if (crit && !latest.criteriosTUS.trim()) updates.criteriosTUS = crit;
 
     if (Object.keys(updates).length === 0) {
       toast(
