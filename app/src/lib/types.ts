@@ -104,12 +104,22 @@ export interface AuditEntry {
 
 export interface AuthUser {
   email: string;
+  /** true quando o usuário é o administrador (ADMIN_EMAIL). */
+  isAdmin?: boolean;
 }
 
 export interface LoginResponse {
   token: string;
   user: AuthUser;
   expiresIn: number;
+}
+
+/** Profissional cadastrado no banco (gerenciado pelo admin). */
+export interface User {
+  id: string;
+  email: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // --------------------------------------------------------------------------
