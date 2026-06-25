@@ -71,6 +71,7 @@ aiRouter.post("/ai/complete", async (req, res, next) => {
       temperature,
       injectMosp: MOSP_TASKS.has(task),
       jsonMode,
+      injectRole: true,
     });
 
     // LGPD: registra a transferência de conteúdo clínico à OpenAI (EUA) —
