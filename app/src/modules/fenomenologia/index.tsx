@@ -8,6 +8,8 @@ import { SLICE } from "@/modules/sliceKeys";
 // Modelo de dados da Fenomenologia (fatia data.fenomenologia)
 // --------------------------------------------------------------------------
 interface FenomenologiaSlice {
+  /** Transcrição completa do exame, gravada uma única vez no início. */
+  transcricaoCompleta: string;
   cenaEncontro: string;
   fenomenoNuclear: string;
   temporalidadeVivida: string;
@@ -19,6 +21,7 @@ interface FenomenologiaSlice {
 }
 
 const DEFAULTS: FenomenologiaSlice = {
+  transcricaoCompleta: "",
   cenaEncontro: "",
   fenomenoNuclear: "",
   temporalidadeVivida: "",
@@ -29,40 +32,46 @@ const DEFAULTS: FenomenologiaSlice = {
   sintese: "",
 };
 
-export default function FenomenologiaStep() {
-  const [s, patch] = useExamSlice<FenomenologiaSlice>(SLICE.fenomenologia, DEFAULTS);
-
-  /** Helper: campo de texto longo com botão de transcrição e dica de avaliação. */
-  const TextField = ({
-    label,
-    field,
-    hint,
-    rows = 3,
-  }: {
-    label: string;
-    field: keyof FenomenologiaSlice;
-    hint?: string;
-    rows?: number;
-  }) => (
+/**
+ * Campo de texto longo de um tópico fenomenológico.
+ *
+ * IMPORTANTE: componente de TOPO (fora do render do passo). Se for declarado
+ * dentro de FenomenologiaStep, sua identidade muda a cada render e o React
+ * remonta o <Textarea> a cada tecla — fazendo o input perder o foco.
+ */
+function TextField({
+  label,
+  field,
+  slice,
+  patch,
+  hint,
+  rows = 4,
+}: {
+  label: string;
+  field: keyof FenomenologiaSlice;
+  slice: FenomenologiaSlice;
+  patch: (updates: Partial<FenomenologiaSlice>) => void;
+  hint?: string;
+  rows?: number;
+}) {
+  return (
     <Field label={label} hint={hint}>
-      <div className="mb-2">
-        <TranscribeButton
-          onTranscript={(t) =>
-            patch({ [field]: (s[field] ? s[field] + " " : "") + t } as Partial<FenomenologiaSlice>)
-          }
-        />
-      </div>
       <Textarea
-        value={s[field]}
+        value={slice[field]}
         onChange={(e) => patch({ [field]: e.target.value } as Partial<FenomenologiaSlice>)}
         rows={rows}
       />
     </Field>
   );
+}
+
+export default function FenomenologiaStep() {
+  const [s, patch] = useExamSlice<FenomenologiaSlice>(SLICE.fenomenologia, DEFAULTS);
 
   /** Monta o conteúdo dos campos para envio à IA. */
   const buildUserContent = () => {
     const linhas = [
+      s.transcricaoCompleta && `Transcrição completa do exame:\n${s.transcricaoCompleta}`,
       s.cenaEncontro && `Cena do encontro e modo de presença:\n${s.cenaEncontro}`,
       s.fenomenoNuclear && `Fenômeno nuclear:\n${s.fenomenoNuclear}`,
       s.temporalidadeVivida && `Temporalidade vivida:\n${s.temporalidadeVivida}`,
@@ -81,6 +90,37 @@ export default function FenomenologiaStep() {
       title="Fenomenologia"
       description="Roteiro de Exame Fenomenológico — abordagem clínica, não diagnóstica. Descreva a experiência vivida do paciente a partir das categorias existenciais."
     >
+      {/* Transcrição completa — gravada uma única vez no início */}
+      <Card className="mb-4">
+        <CardHeader
+          title="Transcrição do Exame"
+          subtitle="Grave o exame fenomenológico por voz uma única vez (ou cole o texto). Em seguida descreva as categorias abaixo a partir desta transcrição."
+        />
+        <div className="p-5">
+          <div className="mb-3">
+            <TranscribeButton
+              onTranscript={(t) =>
+                patch({
+                  transcricaoCompleta:
+                    (s.transcricaoCompleta ? s.transcricaoCompleta + " " : "") + t,
+                })
+              }
+            />
+          </div>
+          <Field
+            label="Transcrição completa"
+            hint="Texto bruto do exame — gravado por voz ou colado. Editável."
+          >
+            <Textarea
+              value={s.transcricaoCompleta}
+              onChange={(e) => patch({ transcricaoCompleta: e.target.value })}
+              rows={6}
+              placeholder="Transcrição do exame fenomenológico…"
+            />
+          </Field>
+        </div>
+      </Card>
+
       {/* Bloco 1: Encontro */}
       <Card className="mb-4">
         <CardHeader
@@ -89,10 +129,11 @@ export default function FenomenologiaStep() {
         />
         <div className="p-5">
           <TextField
+            slice={s}
+            patch={patch}
             label="1. Cena do encontro e modo de presença"
             field="cenaEncontro"
             hint="Observe como o paciente entra, ocupa o espaço, se porta corporalmente e qual é o tom emocional do encontro — o 'clima' intersubjetivo que se instala desde o início."
-            rows={4}
           />
         </div>
       </Card>
@@ -105,16 +146,18 @@ export default function FenomenologiaStep() {
         />
         <div className="p-5">
           <TextField
+            slice={s}
+            patch={patch}
             label="2. Fenômeno nuclear"
             field="fenomenoNuclear"
             hint="Qual é a experiência central que organiza o sofrimento do paciente? Descreva o fenômeno tal como ele se apresenta — sem reduzi-lo a diagnóstico — buscando a estrutura intencional do vivido (ex.: angústia sem objeto, vazio, dissolução)."
-            rows={4}
           />
           <TextField
+            slice={s}
+            patch={patch}
             label="3. Temporalidade vivida"
             field="temporalidadeVivida"
             hint="Como o paciente experiencia passado, presente e futuro? Exemplos: futuro bloqueado ou inexistente na depressão; presente paralisado no trauma; passado que invade o agora no PTSD; aceleração temporal na mania."
-            rows={4}
           />
         </div>
       </Card>
@@ -127,16 +170,18 @@ export default function FenomenologiaStep() {
         />
         <div className="p-5">
           <TextField
+            slice={s}
+            patch={patch}
             label="4. Espacialidade e corporeidade"
             field="espacialidadeCorporeidade"
             hint="Como o paciente vivencia seu corpo e o espaço ao redor? Considere: postura, movimento, sensações corporais, distância interpessoal, vivências de estranheza ou invasão corporal, despersonalização ou desrealização."
-            rows={4}
           />
           <TextField
+            slice={s}
+            patch={patch}
             label="5. Intersubjetividade (ser-com-o-outro)"
             field="intersubjetividade"
             hint="Como o paciente se relaciona com os outros? Observe: capacidade de ressonância afetiva, abertura ou fechamento ao contato, padrões de retraimento, fusão ou isolamento, e a qualidade do vínculo que se estabelece na própria consulta."
-            rows={4}
           />
         </div>
       </Card>
@@ -149,16 +194,18 @@ export default function FenomenologiaStep() {
         />
         <div className="p-5">
           <TextField
+            slice={s}
+            patch={patch}
             label="6. Ipseidade / self"
             field="ipseidade"
             hint="Como o paciente experiencia a si mesmo? Investigue: senso de continuidade e unidade do eu, familiaridade consigo, fronteiras entre self e mundo, e alterações como despersonalização, pensamento inserido ou vivências de passividade."
-            rows={4}
           />
           <TextField
+            slice={s}
+            patch={patch}
             label="7. Tonalidade afetiva de fundo (Stimmung)"
             field="tonalidadeAfetiva"
             hint="Qual é o 'humor de fundo' — a atmosfera afetiva que colore toda a experiência do paciente, anterior a qualquer emoção específica? Ex.: melancolia como estreitamento do mundo, angústia como abertura sem chão, euforia como expansão ilimitada."
-            rows={4}
           />
         </div>
       </Card>
@@ -171,11 +218,6 @@ export default function FenomenologiaStep() {
         />
         <div className="p-5">
           <div className="mb-4 flex flex-wrap gap-2">
-            <TranscribeButton
-              onTranscript={(t) =>
-                patch({ sintese: (s.sintese ? s.sintese + " " : "") + t })
-              }
-            />
             <AiAssistButton
               label="Sintetizar (IA)"
               request={() => ({
