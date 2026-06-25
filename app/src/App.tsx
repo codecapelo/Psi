@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { Spinner } from "@/components/ui";
 import LoginPage from "@/pages/LoginPage";
+import UsersPage from "@/pages/UsersPage";
 import PatientsPage from "@/pages/PatientsPage";
 import PatientHistoryPage from "@/pages/PatientHistoryPage";
 import ExamWizardPage from "@/pages/ExamWizardPage";
@@ -24,7 +25,7 @@ export default function App() {
     );
   }
 
-  // Gate: exige login quando o servidor está configurado com AUTH_USERS.
+  // Gate: exige login quando o servidor tem admin configurado (authRequired).
   if (authRequired && !user) {
     return <LoginPage />;
   }
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/exame/:examId" element={<ExamWizardPage />} />
         <Route path="/exame/:examId/:stepId" element={<ExamWizardPage />} />
         <Route path="/mosp" element={<MospPage />} />
+        {user?.isAdmin && <Route path="/usuarios" element={<UsersPage />} />}
         <Route path="/auditoria" element={<AuditLogPage />} />
         <Route path="/privacidade" element={<PrivacyPage />} />
         <Route path="/config" element={<SettingsPage />} />

@@ -30,12 +30,14 @@ Copie `.env.example` para `.env` (local) e configure as mesmas no painel do Rail
 
 ### Mínimo para subir em produção
 
-Estas **4** já deixam o app funcional e seguro:
+Estas **5** já deixam o app funcional e seguro. Só o **admin** vai no ambiente; os demais
+profissionais são cadastrados depois, dentro do app (tela **Usuários**), e ficam no banco.
 
 ```bash
 DATABASE_URL=postgresql://user:senha@ep-xxx.neon.tech/neondb?sslmode=require   # Neon (Postgres)
 OPENAI_API_KEY=sk-...                                                          # IA
-AUTH_USERS=dra.ana@clinica.com:SenhaForte!23,dr.bruno@clinica.com:Outra#456    # login
+ADMIN_EMAIL=admin@clinica.com                                                  # e-mail do admin
+ADMIN_PASSWORD=UmaSenhaForteEUnica!23                                          # senha do admin
 JWT_SECRET=<saída de: openssl rand -hex 32>                                    # assina os tokens (>=32 chars)
 ```
 
@@ -45,22 +47,24 @@ JWT_SECRET=<saída de: openssl rand -hex 32>                                    
 |---|---|---|
 | `DATABASE_URL` | **sim** (persistência) | String de conexão Neon (Postgres) com `sslmode=require` |
 | `OPENAI_API_KEY` | **sim** (IA) | Chave da API OpenAI |
-| `AUTH_USERS` | **sim** (produção) | Profissionais autorizados, `email:senha` separados por vírgula. **Vazio = API sem autenticação.** |
+| `ADMIN_EMAIL` | **sim** (produção) | E-mail do **administrador** (não fica no banco; vem do ambiente). |
+| `ADMIN_PASSWORD` | **sim** (produção) | Senha do administrador. **Vazio (com `ADMIN_EMAIL` vazio) = API sem autenticação.** |
 | `JWT_SECRET` | **sim** (produção) | Segredo p/ assinar tokens (**≥32 chars**, ex.: `openssl rand -hex 32`). Ausente/curto = segredo efêmero (desloga a cada boot). |
 | `OPENAI_MODEL` | não | Modelo de texto (padrão `gpt-4o`) |
 | `OPENAI_TRANSCRIBE_MODEL` | não | Modelo de transcrição de áudio (padrão `whisper-1`) |
 | `AUTH_TOKEN_TTL` | não | Validade do token em segundos (padrão `43200` = 12h) |
 | `CORS_ORIGIN` | não | Origens permitidas (lista por vírgula). Vazio = somente same-origin (recomendado) |
-| `ADMIN_USERS` | recomendada (multiusuário) | Administradores: veem a trilha de auditoria completa e podem **apagar todos os dados** (LGPD). Regra de default na seção de Segurança. |
-| `MOSP_AUTHORS` | não | E-mails com permissão de escrita no MOSP. Vazio = qualquer usuário autenticado |
 | `PORT` | não | Porta do servidor (o Railway injeta automaticamente) |
 | `NODE_ENV` | não | `production` em produção |
 | `HELMET_CSP` | não | Defina `off` **apenas** para diagnosticar quebras de CSP (não use em produção) |
 
+> **Demais profissionais ficam no banco:** o admin os cadastra na tela **Usuários** (e-mail + senha).
+> As senhas são guardadas com **hash scrypt** (salt aleatório) — nenhuma senha de usuário vai em env.
+
 > **Boot gracioso:** o app **sobe mesmo sem credenciais**. Sem `DATABASE_URL` os endpoints de dados
 > retornam `503` com mensagem clara; sem `OPENAI_API_KEY` os recursos de IA retornam `503` sem
-> quebrar o app; sem `AUTH_USERS` a API fica **aberta** (apenas para dev local — um aviso é emitido
-> no console). As migrations do banco rodam automaticamente no startup (idempotentes).
+> quebrar o app; sem `ADMIN_EMAIL`/`ADMIN_PASSWORD` a API fica **aberta** (apenas para dev local —
+> um aviso é emitido no console). As migrations do banco rodam automaticamente no startup (idempotentes).
 
 ---
 
@@ -82,8 +86,9 @@ estática pura (ex.: Netlify sem functions) não roda a API e exibiria "Page not
 
 ## Fluxo de uso passo a passo
 
-1. **Login** — em produção (com `AUTH_USERS`), a tela de login aparece automaticamente. O e-mail do
-   profissional passa a assinar toda a trilha de auditoria.
+1. **Login** — em produção (com admin configurado), a tela de login aparece automaticamente. Entram
+   o **admin** (do ambiente) e os **profissionais** cadastrados no banco. O e-mail passa a assinar
+   toda a trilha de auditoria. O admin gerencia os usuários na tela **Usuários**.
 2. **Pacientes** — cadastre um paciente (nome + ID/prontuário opcional) ou localize pela busca
    *full-text* (nome, sintomas, diagnóstico, conteúdo da anamnese).
 3. **Novo exame** — a partir do paciente, inicie um exame e percorra o **wizard de 25 etapas**.
@@ -176,13 +181,18 @@ possível **criar modelos próprios**. Exporta em **PDF** (jsPDF + autotable); c
 **Chat clínico** ("Auditor Clínico") com o contexto do caso, para tirar dúvidas, revisar raciocínio
 e checar pontos do atendimento.
 
-### 3. MOSP — Memória Operacional SOPsi
+### 3. Gestão de usuários (admin)
+Tela **Usuários** (visível apenas para o admin): cadastrar profissionais (e-mail + senha),
+redefinir senha e remover acesso. O admin vem do ambiente e não aparece na lista; os demais ficam
+no banco com senha em hash scrypt.
+
+### 4. MOSP — Memória Operacional SOPsi
 Memórias clínicas em **Markdown** com **gatilhos** (palavras-chave). Quando o texto da consulta
 casa com um gatilho, a memória é injetada no *prompt* da IA como diretriz. Vem com **padrões
 pré-carregados** (Risco Suicida, Psicose, Mania/Hipomania, Catatonia) via "Semear Padrões". A
-**escrita** pode ser restrita a `MOSP_AUTHORS`.
+**leitura** é liberada a qualquer profissional autenticado; a **escrita** é restrita ao **admin**.
 
-### 4. Auditoria e LGPD
+### 5. Auditoria e LGPD
 - **Log de auditoria por usuário**: cada ação (CREATE/READ/UPDATE/DELETE) registra o e-mail do
   profissional. São auditados login, leitura de dados de pacientes (inclusive buscas), chamadas de
   IA (metadados) e o apagamento LGPD.
@@ -190,7 +200,7 @@ pré-carregados** (Risco Suicida, Psicose, Mania/Hipomania, Catatonia) via "Seme
 - **Direito ao esquecimento**: apaga todos os dados clínicos numa transação atômica (com contagens
   do que foi removido), preservando os modelos de laudo pré-instalados.
 
-### 5. Configurações e UX
+### 6. Configurações e UX
 - **Tema claro/escuro**; **indicador de status online**; **status do sistema** (banco, IA, modelo).
 - **Autosave por etapa**; trilha de navegação do wizard; mensagens de erro amigáveis (ex.: `503`
   quando falta banco/IA).
@@ -220,20 +230,21 @@ Toda IA roda no backend (chave protegida). Tarefas suportadas:
 
 ## Segurança e autenticação
 
-- **Login obrigatório em produção:** defina `AUTH_USERS` (lista de `email:senha`). Todas as rotas
+- **Login obrigatório em produção:** defina `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Todas as rotas
   `/api/*` (exceto `/api/health`, `/api/auth/config` e `/api/auth/login`) passam a exigir um token
   Bearer válido. O frontend exibe a tela de login automaticamente quando `authRequired = true`.
+- **Dois tipos de credencial:**
+  - **Admin** — vem do ambiente (`ADMIN_EMAIL`/`ADMIN_PASSWORD`). Único administrador.
+  - **Profissionais** — ficam no banco (tabela `users`), cadastrados pelo admin na tela **Usuários**;
+    senhas com **hash scrypt** (salt aleatório), comparação em tempo constante.
 - **Tokens:** assinados (HS256) com `JWT_SECRET` (≥32 chars), validade configurável
   (`AUTH_TOKEN_TTL`). Sem dependências externas — apenas o módulo `crypto` do Node. Respostas `401`
   deslogam o cliente.
 - **Hardening HTTP:** `helmet` (com CSP afinada para o SPA), `express-rate-limit` (login, IA e API
   geral) e CORS restrito a same-origin por padrão (`CORS_ORIGIN='*'` é rejeitado com aviso).
-- **Administradores (`ADMIN_USERS`):** veem a trilha de auditoria completa (os demais veem só as
-  próprias ações) e são os **únicos** que podem executar o apagamento global de dados
-  (`/privacy/wipe`). Regra de default quando `ADMIN_USERS` está vazio: em **modo aberto** (dev) ou
-  **usuário único**, esse usuário é admin; com **múltiplos** profissionais e sem `ADMIN_USERS`,
-  **ninguém** é admin — defina `ADMIN_USERS` para liberar ações destrutivas.
-- **MOSP:** escrita nas memórias clínicas pode ser restrita a `MOSP_AUTHORS`.
+- **Privilégios do admin:** é o **único** que gerencia usuários (`/api/users`), edita o **MOSP**,
+  vê a **trilha de auditoria completa** (os demais veem só as próprias ações) e pode executar o
+  **apagamento global de dados** (`/privacy/wipe`).
 
 > ⚠️ **Transferência internacional (LGPD):** os recursos de IA enviam o conteúdo clínico para a
 > OpenAI (EUA). Cada chamada é auditada (metadados). Garanta base legal/consentimento e o mecanismo
@@ -241,8 +252,10 @@ Toda IA roda no backend (chave protegida). Tarefas suportadas:
 
 ### Decisões e limitações conhecidas
 
-- **Senhas em `AUTH_USERS`:** ficam no ambiente (modelo "cofre do operador", estilo htpasswd) e são
-  comparadas em tempo constante. Proteja o env (nunca commitar; restringir acesso no Railway).
+- **Senha do admin (`ADMIN_PASSWORD`):** fica no ambiente (texto), comparada em tempo constante.
+  Proteja o env (nunca commitar; restringir acesso no Railway). As senhas dos **profissionais** ficam
+  no banco com **hash scrypt** — nunca em texto. Tokens existentes seguem válidos até expirar mesmo
+  após remover um usuário (modelo Bearer/stateless; ajuste `AUTH_TOKEN_TTL` se quiser janela menor).
 - **Token em `localStorage`:** padrão para SPAs com token Bearer. O risco de XSS é mitigado pela CSP
   estrita (`script-src`/`connect-src 'self'`). Migrar para cookies `HttpOnly` exigiria proteção CSRF.
 - **Criptografia em repouso:** o conteúdo clínico (JSONB) depende da criptografia em repouso do
@@ -251,10 +264,10 @@ Toda IA roda no backend (chave protegida). Tarefas suportadas:
 
 ### Checklist de produção
 
-1. `AUTH_USERS` definido com senhas fortes e únicas.
+1. `ADMIN_EMAIL` / `ADMIN_PASSWORD` definidos (senha forte e única).
 2. `JWT_SECRET` aleatório e estável (`openssl rand -hex 32`).
-3. `ADMIN_USERS` definido em instalações com mais de um profissional.
-4. `DATABASE_URL` (Neon) configurado e com backups habilitados.
+3. `DATABASE_URL` (Neon) configurado e com backups habilitados.
+4. Profissionais cadastrados na tela **Usuários** (não em env).
 5. `CORS_ORIGIN` vazio (same-origin) ou restrito às origens necessárias.
 6. HTTPS na borda (o Railway já fornece TLS).
 
@@ -313,9 +326,10 @@ O `railway.json` já define **Build:** `npm install --include=dev && npm run bui
 **Start:** `npm start`. Passos:
 
 1. Railway → **New Project → Deploy from GitHub** → selecione este repositório.
-2. Em **Variables**, configure ao menos `DATABASE_URL`, `OPENAI_API_KEY`, `AUTH_USERS`, `JWT_SECRET`
-   (e `ADMIN_USERS` se houver mais de um profissional).
+2. Em **Variables**, configure ao menos `DATABASE_URL`, `OPENAI_API_KEY`, `ADMIN_EMAIL`,
+   `ADMIN_PASSWORD` e `JWT_SECRET`.
 3. Deploy. O Railway fornece a URL pública com HTTPS; o Express serve frontend + API juntos.
+4. Entre como **admin** e cadastre os profissionais na tela **Usuários**.
 
 > O banco Neon pode ser provisionado no próprio Neon (recomendado) ou via integração.
 
@@ -333,5 +347,6 @@ Cada exame guarda seu conteúdo clínico numa coluna **JSONB** (`exams.data`). C
 o hook `useExamSlice<T>(chave, defaults)`. Isso permite evoluir módulos de forma independente, sem
 migrations por módulo. O autosave faz *merge* no topo do JSON (`data = data || patch`).
 
-Tabelas: `patients`, `exams` (FK + `ON DELETE CASCADE`), `audit_log` (com `actor`), `mosp_memories`
-e `report_templates`. As migrations são idempotentes e rodam no startup.
+Tabelas: `patients`, `exams` (FK + `ON DELETE CASCADE`), `audit_log` (com `actor`), `mosp_memories`,
+`report_templates` e `users` (profissionais; senha em hash scrypt). As migrations são idempotentes e
+rodam no startup.

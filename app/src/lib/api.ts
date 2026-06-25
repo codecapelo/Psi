@@ -15,6 +15,7 @@ import type {
   MospMemory,
   Patient,
   ReportTemplate,
+  User,
 } from "./types";
 
 export class ApiError extends Error {
@@ -250,9 +251,28 @@ export const privacy = {
   wipeAll: () => request<{ ok: boolean }>("/privacy/wipe", { method: "POST" }),
 };
 
+// --------------------------------------------------------------------------
+// Usuários (admin)
+// --------------------------------------------------------------------------
+export const users = {
+  list: () => request<User[]>("/users"),
+  create: (email: string, password: string) =>
+    request<User>("/users", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  setPassword: (id: string, password: string) =>
+    request<User>(`/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ password }),
+    }),
+  remove: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }),
+};
+
 export const apiClient = {
   health,
   auth,
+  users,
   patients,
   exams,
   ai,
