@@ -130,6 +130,51 @@ const ORGANIZE_SYSTEM =
   "Responda SOMENTE com um objeto JSON contendo exatamente estas chaves:\n" +
   ORGANIZE_FIELDS.map((f) => `- "${f.key}": ${f.label}`).join("\n");
 
+/**
+ * Campo de texto longo com botão de transcrição opcional.
+ *
+ * IMPORTANTE: precisa ser um componente de TOPO (fora de AnamneseStep). Se for
+ * declarado dentro do render do passo, sua identidade muda a cada render e o
+ * React remonta o <Textarea> a cada tecla — fazendo o input perder o foco
+ * (só era possível digitar uma letra por vez). Mantê-lo aqui preserva o foco.
+ */
+function TextField({
+  label,
+  field,
+  slice,
+  patch,
+  hint,
+  rows = 3,
+  transcribe = true,
+}: {
+  label: string;
+  field: StringFieldKey;
+  slice: AnamneseSlice;
+  patch: (updates: Partial<AnamneseSlice>) => void;
+  hint?: string;
+  rows?: number;
+  transcribe?: boolean;
+}) {
+  return (
+    <Field label={label} hint={hint}>
+      {transcribe && (
+        <div className="mb-2">
+          <TranscribeButton
+            onTranscript={(t) =>
+              patch({ [field]: (slice[field] ? slice[field] + " " : "") + t } as Partial<AnamneseSlice>)
+            }
+          />
+        </div>
+      )}
+      <Textarea
+        value={slice[field]}
+        onChange={(e) => patch({ [field]: e.target.value } as Partial<AnamneseSlice>)}
+        rows={rows}
+      />
+    </Field>
+  );
+}
+
 export default function AnamneseStep() {
   const [a, patch, , getLatest] = useExamSlice<AnamneseSlice>(SLICE.anamnese, DEFAULTS);
   const { toast } = useToast();
@@ -287,38 +332,6 @@ export default function AnamneseStep() {
     toast("Uso de substâncias preenchido. Revise antes de salvar.", "success");
   };
 
-  /** Helper: campo de texto longo com botão de transcrição opcional. */
-  const TextField = ({
-    label,
-    field,
-    hint,
-    rows = 3,
-    transcribe = true,
-  }: {
-    label: string;
-    field: StringFieldKey;
-    hint?: string;
-    rows?: number;
-    transcribe?: boolean;
-  }) => (
-    <Field label={label} hint={hint}>
-      {transcribe && (
-        <div className="mb-2">
-          <TranscribeButton
-            onTranscript={(t) =>
-              patch({ [field]: (a[field] ? a[field] + " " : "") + t } as Partial<AnamneseSlice>)
-            }
-          />
-        </div>
-      )}
-      <Textarea
-        value={a[field]}
-        onChange={(e) => patch({ [field]: e.target.value } as Partial<AnamneseSlice>)}
-        rows={rows}
-      />
-    </Field>
-  );
-
   return (
     <StepShell
       title="Anamnese"
@@ -406,29 +419,39 @@ export default function AnamneseStep() {
         <CardHeader title="História Clínica" />
         <div className="p-5">
           <TextField
+            slice={a}
+            patch={patch}
             label="Queixa Principal (QP)"
             field="qp"
             hint="Motivo do atendimento — preferencialmente a fala literal do paciente."
             rows={2}
           />
           <TextField
+            slice={a}
+            patch={patch}
             label="História da Doença Atual (HDA)"
             field="hda"
             hint="Cronologia, sintomas e evolução."
             rows={5}
           />
           <TextField
+            slice={a}
+            patch={patch}
             label="História Patológica Pregressa (HPP)"
             field="hpp"
             hint="Comorbidades e internações."
           />
           <TextField
+            slice={a}
+            patch={patch}
             label="Alergias e Reações Adversas"
             field="alergias"
             transcribe={false}
             rows={2}
           />
           <TextField
+            slice={a}
+            patch={patch}
             label="Medicações de Uso Contínuo"
             field="medicacoes"
             transcribe={false}
@@ -565,9 +588,11 @@ export default function AnamneseStep() {
       <Card className="mb-4">
         <CardHeader title="História de Vida e Contexto" />
         <div className="p-5">
-          <TextField label="História do Contexto Familiar" field="familiar" />
-          <TextField label="História Pessoal e Social" field="pessoalSocial" rows={4} />
+          <TextField slice={a} patch={patch} label="História do Contexto Familiar" field="familiar" />
+          <TextField slice={a} patch={patch} label="História Pessoal e Social" field="pessoalSocial" rows={4} />
           <TextField
+            slice={a}
+            patch={patch}
             label="Hábitos e Substâncias"
             field="habitos"
             hint="Álcool, drogas, sono e alimentação."
@@ -579,12 +604,16 @@ export default function AnamneseStep() {
         <CardHeader title="Exames e Achados Físicos" />
         <div className="p-5">
           <TextField
+            slice={a}
+            patch={patch}
             label="Exames Complementares"
             field="examesComplementares"
             hint="Laboratoriais e de imagem."
             transcribe={false}
           />
           <TextField
+            slice={a}
+            patch={patch}
             label="Exame Físico"
             field="exameFisico"
             hint="Sinais vitais e achados físicos."
