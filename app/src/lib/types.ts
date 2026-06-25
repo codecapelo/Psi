@@ -93,7 +93,23 @@ export interface AuditEntry {
   entity: string; // 'patient' | 'exam' | 'mosp' | ...
   entityId?: string | null;
   detail?: string | null;
+  /** E-mail do usuário que executou a ação (quando autenticado). */
+  actor?: string | null;
   createdAt: string;
+}
+
+// --------------------------------------------------------------------------
+// Autenticação
+// --------------------------------------------------------------------------
+
+export interface AuthUser {
+  email: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+  expiresIn: number;
 }
 
 // --------------------------------------------------------------------------

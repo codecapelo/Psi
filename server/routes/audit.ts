@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "../db.ts";
+import { isAuditAdmin } from "../auth.ts";
 
 export const auditRouter = Router();
 
@@ -9,6 +10,7 @@ interface AuditRow {
   entity: string;
   entity_id: string | null;
   detail: string | null;
+  actor: string | null;
   created_at: string;
 }
 
@@ -17,11 +19,16 @@ auditRouter.get("/audit", async (req, res, next) => {
     const action = (req.query.action as string | undefined)?.toUpperCase();
     const valid = ["CREATE", "READ", "UPDATE", "DELETE"];
     const filter = action && valid.includes(action) ? action : null;
+    // RBAC: admins (ou instalação sem AUDIT_ADMINS) veem tudo; demais só as
+    // próprias ações.
+    const me = req.user?.email ?? null;
+    const actorFilter = isAuditAdmin(me) ? null : me;
     const { rows } = await query<AuditRow>(
       `SELECT * FROM audit_log
        WHERE ($1::text IS NULL OR action = $1)
+         AND ($2::text IS NULL OR actor = $2)
        ORDER BY created_at DESC LIMIT 500`,
-      [filter],
+      [filter, actorFilter],
     );
     res.json(
       rows.map((r) => ({
@@ -30,6 +37,7 @@ auditRouter.get("/audit", async (req, res, next) => {
         entity: r.entity,
         entityId: r.entity_id,
         detail: r.detail,
+        actor: r.actor,
         createdAt: r.created_at,
       })),
     );

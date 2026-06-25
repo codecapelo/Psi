@@ -106,7 +106,7 @@ export default function AuditLogPage() {
       ) : (
         <Card>
           {/* Cabeçalho da tabela */}
-          <div className="hidden grid-cols-[160px_80px_110px_100px_1fr] gap-3 border-b border-slate-100 px-4 py-2 dark:border-slate-800 sm:grid">
+          <div className="hidden grid-cols-[150px_72px_90px_90px_150px_1fr] gap-3 border-b border-slate-100 px-4 py-2 dark:border-slate-800 sm:grid">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Data / Hora
             </span>
@@ -120,6 +120,9 @@ export default function AuditLogPage() {
               ID
             </span>
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Usuário
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Detalhe
             </span>
           </div>
@@ -129,7 +132,7 @@ export default function AuditLogPage() {
             {entries.map((entry) => (
               <li
                 key={entry.id}
-                className="grid gap-3 px-4 py-3 text-sm sm:grid-cols-[160px_80px_110px_100px_1fr]"
+                className="grid gap-3 px-4 py-3 text-sm sm:grid-cols-[150px_72px_90px_90px_150px_1fr]"
               >
                 {/* Data / hora */}
                 <span className="whitespace-nowrap font-mono text-xs text-slate-500 dark:text-slate-400">
@@ -158,6 +161,14 @@ export default function AuditLogPage() {
                       ? `${entry.entityId.slice(0, 8)}…`
                       : entry.entityId
                     : "—"}
+                </span>
+
+                {/* Usuário (actor) */}
+                <span
+                  className="truncate text-xs text-slate-500 dark:text-slate-400"
+                  title={entry.actor ?? "—"}
+                >
+                  {entry.actor ?? "—"}
                 </span>
 
                 {/* Detalhe */}

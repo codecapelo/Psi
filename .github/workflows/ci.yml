@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    name: Typecheck · Test · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências (backend)
+        run: npm install
+
+      - name: Instalar dependências (frontend)
+        run: npm --prefix app install
+
+      - name: Typecheck (backend)
+        run: npm run typecheck
+
+      - name: Typecheck (frontend)
+        run: npm --prefix app run typecheck
+
+      - name: Testes (backend)
+        run: npm test
+
+      - name: Testes (frontend)
+        run: npm --prefix app run test
+
+      - name: Build de produção
+        run: npm run build

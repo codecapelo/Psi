@@ -49,7 +49,7 @@ templatesRouter.post("/templates", async (req, res, next) => {
       `INSERT INTO report_templates (name, body, builtin) VALUES ($1, $2, false) RETURNING *`,
       [parsed.data.name, parsed.data.body],
     );
-    await audit("CREATE", "template", rows[0].id, parsed.data.name);
+    await audit("CREATE", "template", rows[0].id, parsed.data.name, req.user?.email);
     res.status(201).json(toTemplate(rows[0]));
   } catch (err) {
     next(err);
@@ -78,7 +78,7 @@ templatesRouter.patch("/templates/:id", async (req, res, next) => {
        WHERE id = $1 RETURNING *`,
       [req.params.id, parsed.data.name ?? null, parsed.data.body ?? null],
     );
-    await audit("UPDATE", "template", req.params.id);
+    await audit("UPDATE", "template", req.params.id, null, req.user?.email);
     res.json(toTemplate(rows[0]));
   } catch (err) {
     next(err);
@@ -96,7 +96,7 @@ templatesRouter.delete("/templates/:id", async (req, res, next) => {
     if (existing.rows[0].builtin)
       return res.status(403).json({ error: "Modelo padrão não pode ser removido." });
     await query(`DELETE FROM report_templates WHERE id = $1`, [req.params.id]);
-    await audit("DELETE", "template", req.params.id);
+    await audit("DELETE", "template", req.params.id, null, req.user?.email);
     res.status(204).end();
   } catch (err) {
     next(err);
