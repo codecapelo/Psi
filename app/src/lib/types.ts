@@ -23,6 +23,9 @@ export interface Patient {
 
 export type ExamStatus = "em_andamento" | "concluido";
 
+/** Tipo do atendimento dentro do fluxo longitudinal. */
+export type EncounterTipo = "admissao" | "evolucao" | "alta" | "consulta";
+
 /** Conteúdo clínico livre do exame (JSONB). Cada módulo grava sua fatia. */
 export type ExamData = Record<string, unknown>;
 
@@ -33,6 +36,16 @@ export interface Exam {
   /** Local do atendimento (CAPS, UBS, etc.) — preenchido na Anamnese. */
   context?: string | null;
   data: ExamData;
+  /** Episódio ao qual pertence (null = atendimento avulso). */
+  episodeId?: string | null;
+  /** admissao | evolucao | alta | consulta. Default 'consulta'. */
+  tipo?: EncounterTipo;
+  /** Ordem dentro do episódio (1, 2, 3…). */
+  seq?: number | null;
+  /** Quando assinado/travado (imutável a partir daí). */
+  lockedAt?: string | null;
+  /** SHA-256 do conteúdo assinado — prova de integridade. */
+  hash?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,6 +53,29 @@ export interface Exam {
 /** Exame com dados do paciente embutidos (usado em listagens de histórico). */
 export interface ExamWithPatient extends Exam {
   patient: Patient;
+}
+
+// --------------------------------------------------------------------------
+// Episódios de cuidado (camada longitudinal)
+// --------------------------------------------------------------------------
+export type EpisodeTipo = "internacao" | "ambulatorial" | "consulta";
+export type EpisodeStatus = "aberto" | "encerrado";
+
+export interface Episode {
+  id: string;
+  patientId: string;
+  tipo: EpisodeTipo;
+  status: EpisodeStatus;
+  titulo?: string | null;
+  openedAt: string;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Episódio com seus atendimentos aninhados (para a cronologia). */
+export interface EpisodeWithExams extends Episode {
+  exams: Exam[];
 }
 
 // --------------------------------------------------------------------------

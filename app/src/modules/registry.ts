@@ -15,9 +15,11 @@
 //   25    Psi Assistente (IA)
 // ==========================================================================
 
-import type { WizardStepDef } from "@/lib/types";
+import type { EncounterTipo, WizardStepDef } from "@/lib/types";
 import AnamneseStep from "./anamnese";
 import FenomenologiaStep from "./fenomenologia";
+import EvolucaoStep from "./evolucao";
+import AltaStep from "./alta";
 import SumulaStep from "./sumula";
 import EscalasStep from "./escalas";
 import DiagnosticoStep from "./diagnostico";
@@ -57,8 +59,31 @@ export const WIZARD_STEPS: WizardStepDef[] = [
   { id: "assistente", index: 25, title: "Psi Assistente (IA)", shortTitle: "Assistente", group: "IA", Component: AssistenteStep },
 ];
 
+// --------------------------------------------------------------------------
+// Conjuntos de etapas por tipo de atendimento (camada longitudinal).
+//   admissao | consulta → wizard clínico completo (25 etapas)
+//   evolucao            → nota SOAP + mini-EEM
+//   alta                → resumo de alta do episódio
+// --------------------------------------------------------------------------
+const EVOLUCAO_STEPS: WizardStepDef[] = [
+  { id: "evolucao", index: 1, title: "Evolução (SOAP)", shortTitle: "Evolução", group: "Clínico", Component: EvolucaoStep },
+];
+
+const ALTA_STEPS: WizardStepDef[] = [
+  { id: "alta", index: 1, title: "Alta", group: "Conclusão", Component: AltaStep },
+];
+
+/** Etapas exibidas para um atendimento conforme seu tipo. */
+export function getStepsForTipo(tipo?: EncounterTipo | null): WizardStepDef[] {
+  if (tipo === "evolucao") return EVOLUCAO_STEPS;
+  if (tipo === "alta") return ALTA_STEPS;
+  return WIZARD_STEPS; // admissao | consulta | undefined (compat)
+}
+
+const ALL_STEPS: WizardStepDef[] = [...WIZARD_STEPS, ...EVOLUCAO_STEPS, ...ALTA_STEPS];
+
 export function getStepById(id: string): WizardStepDef | undefined {
-  return WIZARD_STEPS.find((s) => s.id === id);
+  return ALL_STEPS.find((s) => s.id === id);
 }
 
 export function getStepByIndex(index: number): WizardStepDef | undefined {

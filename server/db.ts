@@ -47,6 +47,28 @@ export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
   return pool.query<T>(text, params as never[]);
 }
 
+/**
+ * Executa `fn` dentro de uma transação (BEGIN/COMMIT, ROLLBACK em erro) com um
+ * cliente dedicado do pool. Use quando precisar de atomicidade ou `FOR UPDATE`.
+ */
+export async function withTransaction<T>(
+  fn: (client: pg.PoolClient) => Promise<T>,
+): Promise<T> {
+  if (!pool) throw new DbNotConfiguredError();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 /** Registra uma ação na trilha de auditoria (best-effort, nunca lança). */
 export async function audit(
   action: "CREATE" | "READ" | "UPDATE" | "DELETE",
@@ -88,6 +110,39 @@ CREATE TABLE IF NOT EXISTS exams (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_exams_patient ON exams(patient_id);
+
+-- ==========================================================================
+-- Camada longitudinal (2.2): episódios de cuidado + tipo de atendimento.
+-- Um episódio agrupa atendimentos (internação = admissão→evoluções→alta;
+-- ambulatorial = consultas; consulta = atendimento avulso).
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS episodes (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id  uuid NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  tipo        text NOT NULL DEFAULT 'consulta',   -- internacao | ambulatorial | consulta
+  status      text NOT NULL DEFAULT 'aberto',     -- aberto | encerrado
+  titulo      text,
+  opened_at   timestamptz NOT NULL DEFAULT now(),
+  closed_at   timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_episodes_patient ON episodes(patient_id);
+
+-- Atendimento ganha tipo + vínculo a um episódio + assinatura imutável (hash).
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS episode_id uuid REFERENCES episodes(id) ON DELETE SET NULL;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS tipo text NOT NULL DEFAULT 'consulta';  -- admissao|evolucao|alta|consulta
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS seq int;          -- ordem dentro do episódio
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS locked_at timestamptz;  -- assinatura: após isso é imutável
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS hash text;        -- SHA-256 do conteúdo assinado
+CREATE INDEX IF NOT EXISTS idx_exams_episode ON exams(episode_id);
+-- Integridade da cronologia: a posição (seq) é única por episódio e cada
+-- episódio tem no máximo UMA alta. Convertem corridas em erro (23505), evitando
+-- ordenação ambígua ou dupla alta.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_exams_episode_seq
+  ON exams(episode_id, seq) WHERE episode_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_exams_episode_alta
+  ON exams(episode_id) WHERE tipo = 'alta' AND episode_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS audit_log (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),

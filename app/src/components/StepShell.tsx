@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Check, CloudOff, Loader2 } from "lucide-react";
+import { Check, CloudOff, Loader2, Lock } from "lucide-react";
 import { useExam } from "@/context/ExamContext";
 
 /**
@@ -18,7 +18,7 @@ export function StepShell({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const { saveState } = useExam();
+  const { saveState, locked, exam } = useExam();
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-5 flex items-start justify-between gap-4">
@@ -33,10 +33,23 @@ export function StepShell({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <SaveIndicator state={saveState} />
+          {!locked && <SaveIndicator state={saveState} />}
           {actions}
         </div>
       </div>
+      {locked && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>
+            Documento assinado — somente leitura.
+            {exam?.hash && (
+              <span className="ml-1 font-mono text-xs opacity-80">
+                hash {exam.hash.slice(0, 16)}…
+              </span>
+            )}
+          </span>
+        </div>
+      )}
       {children}
     </div>
   );

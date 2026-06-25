@@ -24,21 +24,24 @@ privacyRouter.post("/privacy/wipe", requireAdmin, async (req, res, next) => {
     const { rows } = await client.query<{
       patients: string;
       exams: string;
+      episodes: string;
       mosp: string;
       templates: string;
     }>(
       `SELECT
          (SELECT count(*) FROM patients) AS patients,
          (SELECT count(*) FROM exams) AS exams,
+         (SELECT count(*) FROM episodes) AS episodes,
          (SELECT count(*) FROM mosp_memories) AS mosp,
          (SELECT count(*) FROM report_templates WHERE builtin = false) AS templates`,
     );
     const c = rows[0];
     const summary =
       `Direito ao esquecimento (LGPD): ${c.patients} pacientes, ${c.exams} exames, ` +
-      `${c.mosp} memórias MOSP e ${c.templates} modelos removidos.`;
+      `${c.episodes} episódios, ${c.mosp} memórias MOSP e ${c.templates} modelos removidos.`;
 
     await client.query(`DELETE FROM exams`);
+    await client.query(`DELETE FROM episodes`);
     await client.query(`DELETE FROM patients`);
     await client.query(`DELETE FROM mosp_memories`);
     await client.query(`DELETE FROM report_templates WHERE builtin = false`);
