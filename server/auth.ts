@@ -1,28 +1,27 @@
 // ==========================================================================
-// Autenticação — login por e-mail/senha + token assinado (HS256/JWT).
+// Autenticação — admin via env + demais usuários no banco.
 //
-// Filosofia de "boot gracioso" do SOPsi: a app sobe mesmo sem credenciais.
-//   • AUTH_USERS definido  → /api/* exige Bearer token válido (produção).
-//   • AUTH_USERS ausente    → API SEM autenticação (apenas dev local); um aviso
-//                             é emitido no console. NUNCA exponha assim em produção.
+//   • ADMIN_EMAIL / ADMIN_PASSWORD  → o ÚNICO administrador (vem do ambiente).
+//     O admin vê a trilha completa, gerencia usuários, edita o MOSP e pode
+//     apagar todos os dados (LGPD).
+//   • Tabela `users` (Postgres)       → demais profissionais. Senhas com hash
+//     scrypt (salt aleatório). Criados/gerenciados pelo admin em /api/users.
 //
-// Sem dependências externas: usa apenas o módulo `crypto` nativo do Node
-// (HMAC-SHA256 para o token; comparação de senha em tempo constante com
-// sha256 + timingSafeEqual). As senhas residem em AUTH_USERS — esse env é o
-// "cofre" do operador e deve ser protegido (nunca commitar, restringir acesso).
+// Token de sessão: HS256 assinado só com o módulo `crypto` do Node (sem deps).
+// Boot gracioso: sem ADMIN_EMAIL/ADMIN_PASSWORD a API fica ABERTA (apenas dev),
+// com aviso no console.
+//
 // Variáveis de ambiente:
-//   AUTH_USERS       "email:senha,email2:senha2"  (lista de profissionais)
+//   ADMIN_EMAIL      e-mail do administrador
+//   ADMIN_PASSWORD   senha do administrador
 //   JWT_SECRET       segredo para assinar tokens (>=32 chars; senão, efêmero)
 //   AUTH_TOKEN_TTL   validade do token em segundos (padrão 43200 = 12h)
-//   MOSP_AUTHORS     e-mails com permissão de escrita no MOSP (vazio = todos)
-//   ADMIN_USERS      administradores: veem a trilha completa e podem executar
-//                    ações destrutivas (apagamento LGPD)
 // ==========================================================================
 
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
-import { audit } from "./db.ts";
+import { audit, hasDb, query } from "./db.ts";
 
 export interface AuthUser {
   email: string;
@@ -39,40 +38,88 @@ declare global {
 }
 
 // --------------------------------------------------------------------------
-// Configuração (lida de env; memoizada, com reset para testes)
+// Admin (env)
 // --------------------------------------------------------------------------
 
-let _usersCache: Map<string, string> | null = null;
-
-function parseUsers(): Map<string, string> {
-  const raw = process.env.AUTH_USERS || "";
-  const map = new Map<string, string>();
-  for (const pair of raw.split(",")) {
-    const idx = pair.indexOf(":");
-    if (idx <= 0) continue;
-    const email = pair.slice(0, idx).trim().toLowerCase();
-    const password = pair.slice(idx + 1); // senha pode conter ":"
-    if (email && password) map.set(email, password);
-  }
-  return map;
+function adminEmail(): string {
+  return (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
 }
 
-function users(): Map<string, string> {
-  if (!_usersCache) _usersCache = parseUsers();
-  return _usersCache;
+function adminPassword(): string {
+  return process.env.ADMIN_PASSWORD || "";
 }
 
-/** Reseta o cache de configuração (uso em testes após mudar env). */
-export function __resetAuthCache(): void {
-  _usersCache = null;
-}
-
-/** true quando há ao menos um usuário configurado (AUTH_USERS). */
+/** Há um administrador configurado (e portanto a API exige autenticação)? */
 export function authConfigured(): boolean {
-  return users().size > 0;
+  return !!adminEmail() && !!adminPassword();
 }
 
-// Segredo efêmero do processo (fallback quando JWT_SECRET não está definido).
+/** É o administrador? Em modo aberto (dev, sem admin), todos são admin. */
+export function isAdmin(email?: string | null): boolean {
+  if (!authConfigured()) return true; // modo aberto (dev)
+  const a = adminEmail();
+  return !!email && email.trim().toLowerCase() === a;
+}
+
+// --------------------------------------------------------------------------
+// Senhas — hash scrypt (usuários do banco) e comparação em tempo constante
+// --------------------------------------------------------------------------
+
+/** Gera um hash scrypt no formato `scrypt$<saltHex>$<hashHex>`. */
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(password, salt, 64);
+  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
+}
+
+/** Verifica uma senha contra um hash scrypt, em tempo constante. */
+export function verifyPassword(password: string, stored: string): boolean {
+  const parts = (stored || "").split("$");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+  const salt = Buffer.from(parts[1], "hex");
+  const expected = Buffer.from(parts[2], "hex");
+  if (expected.length === 0) return false;
+  const actual = crypto.scryptSync(password, salt, expected.length);
+  return crypto.timingSafeEqual(expected, actual);
+}
+
+/** Compara a senha do admin (texto no env) em tempo constante. */
+function adminPasswordMatches(password: string): boolean {
+  const a = crypto.createHash("sha256").update(password).digest();
+  const b = crypto.createHash("sha256").update(adminPassword()).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+/**
+ * Autentica um e-mail/senha. Verifica primeiro o admin (env); depois, os
+ * usuários do banco. Retorna a identidade ou null.
+ */
+export async function authenticate(
+  email: string,
+  password: string,
+): Promise<AuthUser | null> {
+  const e = (email || "").trim().toLowerCase();
+  if (!e || !password) return null;
+
+  if (adminEmail() && e === adminEmail()) {
+    return adminPasswordMatches(password) ? { email: e } : null;
+  }
+
+  if (!hasDb()) return null;
+  const { rows } = await query<{ email: string; password_hash: string }>(
+    `SELECT email, password_hash FROM users WHERE email = $1`,
+    [e],
+  );
+  if (rows.length === 0) return null;
+  return verifyPassword(password, rows[0].password_hash)
+    ? { email: rows[0].email }
+    : null;
+}
+
+// --------------------------------------------------------------------------
+// Token (HS256 / JWT compacto)
+// --------------------------------------------------------------------------
+
 const EPHEMERAL_SECRET = crypto.randomBytes(48).toString("hex");
 let warnedEphemeral = false;
 
@@ -95,10 +142,6 @@ function ttlSeconds(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 43_200; // 12h
 }
 
-// --------------------------------------------------------------------------
-// Helpers base64url
-// --------------------------------------------------------------------------
-
 function b64url(buf: Buffer): string {
   return buf
     .toString("base64")
@@ -114,26 +157,6 @@ function b64urlDecode(str: string): Buffer {
 function hmac(data: string): Buffer {
   return crypto.createHmac("sha256", secret()).update(data).digest();
 }
-
-// --------------------------------------------------------------------------
-// Senha — comparação em tempo constante (sha256 + timingSafeEqual)
-// --------------------------------------------------------------------------
-
-export function verifyCredentials(email: string, password: string): boolean {
-  const expected = users().get(email.trim().toLowerCase());
-  if (!expected) {
-    // Comparação dummy para mitigar timing attack mesmo sem usuário.
-    crypto.createHash("sha256").update(password).digest();
-    return false;
-  }
-  const a = crypto.createHash("sha256").update(password).digest();
-  const b = crypto.createHash("sha256").update(expected).digest();
-  return crypto.timingSafeEqual(a, b);
-}
-
-// --------------------------------------------------------------------------
-// Token (HS256 / JWT compacto)
-// --------------------------------------------------------------------------
 
 export function signToken(email: string): string {
   const header = { alg: "HS256", typ: "JWT" };
@@ -167,12 +190,12 @@ export function verifyToken(token: string): AuthUser | null {
 }
 
 // --------------------------------------------------------------------------
-// Middleware
+// Middlewares
 // --------------------------------------------------------------------------
 
 let warnedNoAuth = false;
 
-/** Exige token válido quando AUTH_USERS está configurado. */
+/** Exige token válido quando há admin configurado. */
 export function requireAuth(
   req: Request,
   res: Response,
@@ -181,8 +204,8 @@ export function requireAuth(
   if (!authConfigured()) {
     if (!warnedNoAuth) {
       console.warn(
-        "[auth] AUTH_USERS ausente — a API está SEM AUTENTICAÇÃO. " +
-          "Defina AUTH_USERS antes de expor o app (dados clínicos / LGPD).",
+        "[auth] ADMIN_EMAIL/ADMIN_PASSWORD ausentes — a API está SEM AUTENTICAÇÃO. " +
+          "Configure o admin antes de expor o app (dados clínicos / LGPD).",
       );
       warnedNoAuth = true;
     }
@@ -200,69 +223,14 @@ export function requireAuth(
   next();
 }
 
-// --------------------------------------------------------------------------
-// Autorização do MOSP (escrita restrita a MOSP_AUTHORS, se definido)
-// --------------------------------------------------------------------------
-
-export function mospCanWrite(email?: string): boolean {
-  const authors = (process.env.MOSP_AUTHORS || "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (authors.length === 0) return true; // não restrito
-  if (!email) return false;
-  return authors.includes(email.trim().toLowerCase());
-}
-
-/**
- * Administradores: veem a trilha de auditoria completa e podem executar ações
- * destrutivas (apagamento LGPD). Regras:
- *   • ADMIN_USERS definido  → apenas os e-mails listados.
- *   • ADMIN_USERS vazio:
- *       - modo aberto (sem AUTH_USERS, dev)        → todos são admin;
- *       - instalação de usuário único              → o único profissional é admin;
- *       - múltiplos usuários e sem ADMIN_USERS      → NINGUÉM é admin
- *         (force a definição de ADMIN_USERS para liberar ações destrutivas).
- */
-export function isAdmin(email?: string | null): boolean {
-  const admins = (process.env.ADMIN_USERS || "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (admins.length > 0) {
-    if (!email) return false;
-    return admins.includes(email.trim().toLowerCase());
-  }
-  if (!authConfigured()) return true; // modo aberto (dev)
-  return users().size === 1; // instalação de usuário único
-}
-
-/** Middleware: restringe a ação a administradores. */
+/** Restringe a ação ao administrador. */
 export function requireAdmin(
   req: Request,
   res: Response,
   next: NextFunction,
 ): void {
   if (!isAdmin(req.user?.email)) {
-    res.status(403).json({
-      error:
-        "Ação restrita a administradores. Defina ADMIN_USERS no servidor para autorizar.",
-    });
-    return;
-  }
-  next();
-}
-
-/** Middleware: bloqueia escrita no MOSP para quem não é autor. */
-export function requireMospAuthor(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  if (!mospCanWrite(req.user?.email)) {
-    res.status(403).json({
-      error: "Sem permissão para editar memórias clínicas (MOSP).",
-    });
+    res.status(403).json({ error: "Ação restrita ao administrador." });
     return;
   }
   next();
@@ -279,28 +247,32 @@ authRouter.get("/auth/config", (_req, res) => {
   res.json({ authRequired: authConfigured() });
 });
 
-authRouter.post("/auth/login", (req, res) => {
-  const { email, password } = (req.body ?? {}) as {
-    email?: unknown;
-    password?: unknown;
-  };
-  if (typeof email !== "string" || typeof password !== "string") {
-    return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+authRouter.post("/auth/login", async (req, res) => {
+  try {
+    const { email, password } = (req.body ?? {}) as {
+      email?: unknown;
+      password?: unknown;
+    };
+    if (typeof email !== "string" || typeof password !== "string") {
+      return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+    }
+    if (!authConfigured()) {
+      return res
+        .status(400)
+        .json({ error: "Autenticação não configurada no servidor." });
+    }
+    const user = await authenticate(email, password);
+    if (!user) {
+      return res.status(401).json({ error: "E-mail ou senha inválidos." });
+    }
+    void audit("CREATE", "session", null, "login", user.email);
+    return res.json({
+      token: signToken(user.email),
+      user: { email: user.email, isAdmin: isAdmin(user.email) },
+      expiresIn: ttlSeconds(),
+    });
+  } catch (err) {
+    console.error("[auth] erro no login:", err);
+    return res.status(500).json({ error: "Erro ao autenticar." });
   }
-  if (!authConfigured()) {
-    return res
-      .status(400)
-      .json({ error: "Autenticação não configurada no servidor." });
-  }
-  if (!verifyCredentials(email, password)) {
-    return res.status(401).json({ error: "E-mail ou senha inválidos." });
-  }
-  const normalized = email.trim().toLowerCase();
-  // Registra o início de sessão na trilha (best-effort; no-op sem banco).
-  void audit("CREATE", "session", null, "login", normalized);
-  return res.json({
-    token: signToken(normalized),
-    user: { email: normalized },
-    expiresIn: ttlSeconds(),
-  });
 });

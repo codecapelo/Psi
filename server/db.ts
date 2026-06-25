@@ -120,6 +120,15 @@ CREATE TABLE IF NOT EXISTS report_templates (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Profissionais (login). O admin NÃO fica aqui — vem de ADMIN_EMAIL/ADMIN_PASSWORD.
+CREATE TABLE IF NOT EXISTS users (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         text UNIQUE NOT NULL,
+  password_hash text NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
 `;
 
 /** Cria o schema (idempotente). Chamado no startup. */

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query, audit } from "../db.ts";
-import { requireMospAuthor } from "../auth.ts";
+import { requireAdmin } from "../auth.ts";
 
 export const mospRouter = Router();
 
@@ -50,7 +50,7 @@ const memSchema = z.object({
   contentMd: z.string().optional(),
 });
 
-mospRouter.post("/mosp", requireMospAuthor, async (req, res, next) => {
+mospRouter.post("/mosp", requireAdmin, async (req, res, next) => {
   try {
     const parsed = memSchema.safeParse(req.body);
     if (!parsed.success)
@@ -68,7 +68,7 @@ mospRouter.post("/mosp", requireMospAuthor, async (req, res, next) => {
   }
 });
 
-mospRouter.patch("/mosp/:id", requireMospAuthor, async (req, res, next) => {
+mospRouter.patch("/mosp/:id", requireAdmin, async (req, res, next) => {
   try {
     const parsed = memSchema.partial().safeParse(req.body);
     if (!parsed.success)
@@ -92,7 +92,7 @@ mospRouter.patch("/mosp/:id", requireMospAuthor, async (req, res, next) => {
   }
 });
 
-mospRouter.delete("/mosp/:id", requireMospAuthor, async (req, res, next) => {
+mospRouter.delete("/mosp/:id", requireAdmin, async (req, res, next) => {
   try {
     const { rowCount } = await query(`DELETE FROM mosp_memories WHERE id = $1`, [
       req.params.id,
@@ -137,7 +137,7 @@ const SEED: Array<{ title: string; order: number; triggers: string[]; contentMd:
   },
 ];
 
-mospRouter.post("/mosp/seed", requireMospAuthor, async (req, res, next) => {
+mospRouter.post("/mosp/seed", requireAdmin, async (req, res, next) => {
   try {
     let inserted = 0;
     for (const m of SEED) {

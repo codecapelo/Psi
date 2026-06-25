@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Users,
+  UserCog,
   BookText,
   ScrollText,
   ShieldCheck,
@@ -17,18 +18,29 @@ import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/api";
 
-const NAV = [
-  { to: "/", label: "Meus Pacientes", icon: Users, end: true },
-  { to: "/mosp", label: "MOSP — Memória", icon: BookText },
-  { to: "/auditoria", label: "Log de Auditoria", icon: ScrollText },
-  { to: "/privacidade", label: "Dados & Privacidade", icon: ShieldCheck },
-  { to: "/config", label: "Configurações", icon: Settings },
-];
+interface NavItem {
+  to: string;
+  label: string;
+  icon: typeof Users;
+  end?: boolean;
+}
+
+function buildNav(isAdmin: boolean): NavItem[] {
+  return [
+    { to: "/", label: "Meus Pacientes", icon: Users, end: true },
+    { to: "/mosp", label: "MOSP — Memória", icon: BookText },
+    ...(isAdmin ? [{ to: "/usuarios", label: "Usuários", icon: UserCog }] : []),
+    { to: "/auditoria", label: "Log de Auditoria", icon: ScrollText },
+    { to: "/privacidade", label: "Dados & Privacidade", icon: ShieldCheck },
+    { to: "/config", label: "Configurações", icon: Settings },
+  ];
+}
 
 export function Layout({ children }: { children: ReactNode }) {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
+  const nav = buildNav(!!user?.isAdmin);
   // Esconde a sidebar global dentro do wizard de exame (que tem rail próprio).
   const inExam = location.pathname.startsWith("/exame/");
 
@@ -49,7 +61,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               Sistema
             </p>
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
