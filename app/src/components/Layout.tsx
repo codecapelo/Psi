@@ -10,9 +10,11 @@ import {
   Moon,
   Sun,
   Brain,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
 import apiClient from "@/lib/api";
 
 const NAV = [
@@ -25,6 +27,7 @@ const NAV = [
 
 export function Layout({ children }: { children: ReactNode }) {
   const { theme, toggle } = useTheme();
+  const { user, logout } = useAuth();
   const location = useLocation();
   // Esconde a sidebar global dentro do wizard de exame (que tem rail próprio).
   const inExam = location.pathname.startsWith("/exame/");
@@ -105,6 +108,24 @@ export function Layout({ children }: { children: ReactNode }) {
                 <Moon className="h-4 w-4" />
               )}
             </button>
+            {user && (
+              <div className="flex items-center gap-2 border-l border-slate-200 pl-3 dark:border-slate-700">
+                <span
+                  className="hidden max-w-[160px] truncate text-xs text-slate-500 sm:inline dark:text-slate-400"
+                  title={user.email}
+                >
+                  {user.email}
+                </span>
+                <button
+                  onClick={logout}
+                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  aria-label="Sair"
+                  title="Sair"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">

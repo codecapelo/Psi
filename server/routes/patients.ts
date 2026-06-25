@@ -41,6 +41,8 @@ patientsRouter.get("/patients", async (req, res, next) => {
        LIMIT 500`,
       [like],
     );
+    // LGPD: acesso a dados de pacientes é auditado (inclusive buscas).
+    await audit("READ", "patient", null, q ? `busca: ${q}` : "lista", req.user?.email);
     res.json(rows.map(toPatient));
   } catch (err) {
     next(err);
@@ -54,6 +56,7 @@ patientsRouter.get("/patients/:id", async (req, res, next) => {
       [req.params.id],
     );
     if (rows.length === 0) return res.status(404).json({ error: "Paciente não encontrado." });
+    await audit("READ", "patient", req.params.id, null, req.user?.email);
     res.json(toPatient(rows[0]));
   } catch (err) {
     next(err);
@@ -75,7 +78,7 @@ patientsRouter.post("/patients", async (req, res, next) => {
       `INSERT INTO patients (name, external_id) VALUES ($1, $2) RETURNING *`,
       [name, externalId || null],
     );
-    await audit("CREATE", "patient", rows[0].id, name);
+    await audit("CREATE", "patient", rows[0].id, name, req.user?.email);
     res.status(201).json(toPatient(rows[0]));
   } catch (err) {
     next(err);
@@ -104,7 +107,7 @@ patientsRouter.patch("/patients/:id", async (req, res, next) => {
       [req.params.id, name ?? null, externalId ?? null, summary ?? null],
     );
     if (rows.length === 0) return res.status(404).json({ error: "Paciente não encontrado." });
-    await audit("UPDATE", "patient", req.params.id);
+    await audit("UPDATE", "patient", req.params.id, null, req.user?.email);
     res.json(toPatient(rows[0]));
   } catch (err) {
     next(err);
@@ -113,11 +116,22 @@ patientsRouter.patch("/patients/:id", async (req, res, next) => {
 
 patientsRouter.delete("/patients/:id", async (req, res, next) => {
   try {
+    // Conta os exames que serão removidos em cascata (rastreabilidade LGPD).
+    const { rows: cnt } = await query<{ n: string }>(
+      `SELECT count(*) AS n FROM exams WHERE patient_id = $1`,
+      [req.params.id],
+    );
     const { rowCount } = await query(`DELETE FROM patients WHERE id = $1`, [
       req.params.id,
     ]);
     if (!rowCount) return res.status(404).json({ error: "Paciente não encontrado." });
-    await audit("DELETE", "patient", req.params.id);
+    await audit(
+      "DELETE",
+      "patient",
+      req.params.id,
+      `${cnt[0]?.n ?? 0} exames removidos em cascata`,
+      req.user?.email,
+    );
     res.status(204).end();
   } catch (err) {
     next(err);

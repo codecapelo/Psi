@@ -7,9 +7,11 @@ import type {
   AiCompletionResponse,
   AiTranscriptionResponse,
   AuditEntry,
+  AuthUser,
   Exam,
   ExamData,
   ExamWithPatient,
+  LoginResponse,
   MospMemory,
   Patient,
   ReportTemplate,
@@ -24,17 +26,57 @@ export class ApiError extends Error {
   }
 }
 
+// --------------------------------------------------------------------------
+// Token de autenticação (armazenado no localStorage)
+// --------------------------------------------------------------------------
+const TOKEN_KEY = "sopsi_token";
+
+export function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* localStorage indisponível */
+  }
+}
+
+/** Disparado quando o backend responde 401 — a UI redireciona para login. */
+export function onUnauthorized(): void {
+  setToken(null);
+  window.dispatchEvent(new CustomEvent("sopsi:unauthorized"));
+}
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const token = getToken();
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(extra || {}),
+  };
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
   const res = await fetch(`/api${path}`, {
-    headers: {
+    headers: authHeaders({
       "Content-Type": "application/json",
       ...(options.headers || {}),
-    },
+    }),
     ...options,
   });
+
+  if (res.status === 401) {
+    onUnauthorized();
+  }
 
   if (!res.ok) {
     let message = `Erro ${res.status}`;
@@ -50,6 +92,19 @@ async function request<T>(
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+// --------------------------------------------------------------------------
+// Autenticação
+// --------------------------------------------------------------------------
+export const auth = {
+  config: () => request<{ authRequired: boolean }>("/auth/config"),
+  me: () => request<{ user: AuthUser | null }>("/auth/me"),
+  login: (email: string, password: string) =>
+    request<LoginResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+};
 
 // --------------------------------------------------------------------------
 // Health
@@ -119,8 +174,10 @@ export const ai = {
     form.append("audio", audio, "audio.webm");
     const res = await fetch("/api/ai/transcribe", {
       method: "POST",
+      headers: authHeaders(),
       body: form,
     });
+    if (res.status === 401) onUnauthorized();
     if (!res.ok) {
       let message = `Erro ${res.status}`;
       try {
@@ -195,6 +252,7 @@ export const privacy = {
 
 export const apiClient = {
   health,
+  auth,
   patients,
   exams,
   ai,

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
+import { audit } from "../db.ts";
 import {
   chatComplete,
   transcribe,
@@ -70,6 +71,10 @@ aiRouter.post("/ai/complete", async (req, res, next) => {
       injectMosp: MOSP_TASKS.has(task),
     });
 
+    // LGPD: registra a transferência de conteúdo clínico à OpenAI (EUA) —
+    // metadados apenas (tarefa, modelo, ator), nunca o conteúdo enviado.
+    await audit("READ", "ai", null, `tarefa=${task}; modelo=${result.model}`, req.user?.email);
+
     res.json({
       text: result.text,
       model: result.model,
@@ -86,6 +91,7 @@ aiRouter.post("/ai/transcribe", upload.single("audio"), async (req, res, next) =
   try {
     if (!req.file) return res.status(400).json({ error: "Áudio ausente." });
     const result = await transcribe(req.file.buffer, req.file.originalname);
+    await audit("READ", "ai", null, `transcrição; modelo=${result.model}`, req.user?.email);
     res.json({ text: result.text, model: result.model });
   } catch (err) {
     if (err instanceof AiNotConfiguredError)

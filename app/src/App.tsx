@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
+import { useAuth } from "@/context/AuthContext";
+import { Spinner } from "@/components/ui";
+import LoginPage from "@/pages/LoginPage";
 import PatientsPage from "@/pages/PatientsPage";
 import PatientHistoryPage from "@/pages/PatientHistoryPage";
 import ExamWizardPage from "@/pages/ExamWizardPage";
@@ -10,6 +13,22 @@ import SettingsPage from "@/pages/SettingsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 
 export default function App() {
+  const { ready, authRequired, user } = useAuth();
+
+  // Aguarda o bootstrap de autenticação antes de renderizar a aplicação.
+  if (!ready) {
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Spinner className="h-6 w-6 text-brand-600" />
+      </div>
+    );
+  }
+
+  // Gate: exige login quando o servidor está configurado com AUTH_USERS.
+  if (authRequired && !user) {
+    return <LoginPage />;
+  }
+
   return (
     <Layout>
       <Routes>

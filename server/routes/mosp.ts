@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query, audit } from "../db.ts";
+import { requireMospAuthor } from "../auth.ts";
 
 export const mospRouter = Router();
 
@@ -49,7 +50,7 @@ const memSchema = z.object({
   contentMd: z.string().optional(),
 });
 
-mospRouter.post("/mosp", async (req, res, next) => {
+mospRouter.post("/mosp", requireMospAuthor, async (req, res, next) => {
   try {
     const parsed = memSchema.safeParse(req.body);
     if (!parsed.success)
@@ -60,14 +61,14 @@ mospRouter.post("/mosp", async (req, res, next) => {
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [title, order ?? 100, triggers ?? [], contentMd ?? ""],
     );
-    await audit("CREATE", "mosp", rows[0].id, title);
+    await audit("CREATE", "mosp", rows[0].id, title, req.user?.email);
     res.status(201).json(toMemory(rows[0]));
   } catch (err) {
     next(err);
   }
 });
 
-mospRouter.patch("/mosp/:id", async (req, res, next) => {
+mospRouter.patch("/mosp/:id", requireMospAuthor, async (req, res, next) => {
   try {
     const parsed = memSchema.partial().safeParse(req.body);
     if (!parsed.success)
@@ -84,20 +85,20 @@ mospRouter.patch("/mosp/:id", async (req, res, next) => {
       [req.params.id, title ?? null, order ?? null, triggers ?? null, contentMd ?? null],
     );
     if (rows.length === 0) return res.status(404).json({ error: "Memória não encontrada." });
-    await audit("UPDATE", "mosp", req.params.id);
+    await audit("UPDATE", "mosp", req.params.id, null, req.user?.email);
     res.json(toMemory(rows[0]));
   } catch (err) {
     next(err);
   }
 });
 
-mospRouter.delete("/mosp/:id", async (req, res, next) => {
+mospRouter.delete("/mosp/:id", requireMospAuthor, async (req, res, next) => {
   try {
     const { rowCount } = await query(`DELETE FROM mosp_memories WHERE id = $1`, [
       req.params.id,
     ]);
     if (!rowCount) return res.status(404).json({ error: "Memória não encontrada." });
-    await audit("DELETE", "mosp", req.params.id);
+    await audit("DELETE", "mosp", req.params.id, null, req.user?.email);
     res.status(204).end();
   } catch (err) {
     next(err);
@@ -136,7 +137,7 @@ const SEED: Array<{ title: string; order: number; triggers: string[]; contentMd:
   },
 ];
 
-mospRouter.post("/mosp/seed", async (_req, res, next) => {
+mospRouter.post("/mosp/seed", requireMospAuthor, async (req, res, next) => {
   try {
     let inserted = 0;
     for (const m of SEED) {
@@ -148,7 +149,7 @@ mospRouter.post("/mosp/seed", async (_req, res, next) => {
       );
       inserted += rowCount ?? 0;
     }
-    await audit("CREATE", "mosp", null, `seed (${inserted})`);
+    await audit("CREATE", "mosp", null, `seed (${inserted})`, req.user?.email);
     res.json({ inserted });
   } catch (err) {
     next(err);

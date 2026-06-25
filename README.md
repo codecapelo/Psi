@@ -26,7 +26,8 @@ inteligência artificial (OpenAI) e geração de documentos — num wizard guiad
 - **IA:** transcrição por voz, "Sintetizar e Preencher", sugestão diagnóstica/diferenciais, propostas de PTS,
   análise de interações, auditoria de PDFs e chat clínico (Auditor Clínico).
 - **MOSP:** memórias clínicas em Markdown injetadas na IA por gatilhos (padrões: Risco Suicida, Psicose, Mania, Catatonia).
-- **LGPD:** trilha de auditoria, consentimento e direito ao esquecimento (apagar todos os dados).
+- **Autenticação:** login por e-mail/senha com token assinado; rotas `/api/*` protegidas; rate-limiting e `helmet`.
+- **LGPD:** trilha de auditoria **por usuário**, consentimento e direito ao esquecimento (apagar todos os dados).
 - Tema claro/escuro; indicador de status online; autosave por etapa.
 
 ## Variáveis de ambiente
@@ -39,11 +40,60 @@ Copie `.env.example` para `.env` (local) e configure no Railway. Veja descriçõ
 | `OPENAI_API_KEY` | sim (IA) | Chave da API OpenAI |
 | `OPENAI_MODEL` | não | Modelo de texto (padrão `gpt-4o`) |
 | `OPENAI_TRANSCRIBE_MODEL` | não | Modelo de transcrição (padrão `whisper-1`) |
+| `AUTH_USERS` | **sim (produção)** | Profissionais autorizados, `email:senha` separados por vírgula. **Vazio = API sem autenticação.** |
+| `JWT_SECRET` | sim (produção) | Segredo p/ assinar tokens (**≥32 chars**, ex.: `openssl rand -hex 32`). Ausente/curto = segredo efêmero (desloga a cada boot). |
+| `AUTH_TOKEN_TTL` | não | Validade do token em segundos (padrão `43200` = 12h) |
+| `CORS_ORIGIN` | não | Origens permitidas (lista). Vazio = somente same-origin (recomendado) |
+| `MOSP_AUTHORS` | não | E-mails com escrita no MOSP. Vazio = qualquer usuário autenticado |
+| `ADMIN_USERS` | recomendada (multiusuário) | Administradores: veem a trilha completa e podem **apagar todos os dados** (LGPD). Veja a regra de default abaixo. |
 | `PORT` | não | Porta do servidor (Railway injeta automaticamente) |
 
 > O app **sobe mesmo sem credenciais** (boot gracioso): sem `DATABASE_URL` os endpoints de dados
-> retornam 503 com mensagem clara; sem `OPENAI_API_KEY` os recursos de IA retornam 503 sem quebrar o app.
+> retornam 503 com mensagem clara; sem `OPENAI_API_KEY` os recursos de IA retornam 503 sem quebrar o app;
+> sem `AUTH_USERS` a API fica **aberta** (apenas para dev local — um aviso é emitido no console).
 > As migrations do banco rodam automaticamente no startup (idempotentes).
+
+## Segurança e autenticação
+
+- **Login obrigatório em produção:** defina `AUTH_USERS` (lista de `email:senha`). Todas as rotas
+  `/api/*` (exceto `/api/health`, `/api/auth/config` e `/api/auth/login`) passam a exigir um token
+  Bearer válido. O frontend exibe a tela de login automaticamente quando `authRequired = true`.
+- **Tokens:** assinados (HS256) com `JWT_SECRET`, validade configurável (`AUTH_TOKEN_TTL`). Sem
+  dependências externas — apenas o módulo `crypto` do Node. Respostas `401` deslogam o cliente.
+- **Hardening HTTP:** `helmet` (com CSP afinada para o SPA), `express-rate-limit` (login, IA e API
+  geral) e CORS restrito a same-origin por padrão (`CORS_ORIGIN='*'` é rejeitado com aviso).
+- **Trilha de auditoria por usuário:** cada ação (CREATE/READ/UPDATE/DELETE) registra o e-mail do
+  profissional (`audit_log.actor`). São auditados também: **login**, **leitura de dados de pacientes**
+  (inclusive buscas), **chamadas de IA** (metadados — tarefa/modelo/ator, nunca o conteúdo) e o
+  **apagamento LGPD** (com contagens do que foi removido, em transação atômica).
+- **Administradores (`ADMIN_USERS`):** veem a trilha de auditoria completa (os demais veem só as
+  próprias ações) e são os **únicos** que podem executar o apagamento global de dados (`/privacy/wipe`).
+  Regra de default quando `ADMIN_USERS` está vazio: em **modo aberto** (dev) ou **usuário único**, esse
+  usuário é admin; com **múltiplos** profissionais e sem `ADMIN_USERS`, **ninguém** é admin — defina
+  `ADMIN_USERS` para liberar ações destrutivas.
+- **MOSP:** escrita nas memórias clínicas pode ser restrita a `MOSP_AUTHORS`.
+
+> ⚠️ **Transferência internacional (LGPD):** os recursos de IA enviam o conteúdo clínico para a
+> OpenAI (EUA). Cada chamada é auditada (metadados). Garanta base legal/consentimento e o mecanismo
+> de transferência (ex.: cláusulas contratuais-padrão) antes de usar a IA com dados reais.
+
+### Decisões e limitações conhecidas
+
+- **Senhas em `AUTH_USERS`:** ficam no ambiente (modelo "cofre do operador", estilo htpasswd) e são
+  comparadas em tempo constante. Proteja o env (nunca commitar; restringir acesso no Railway).
+- **Token em `localStorage`:** padrão para SPAs com token Bearer. O risco de XSS é mitigado pela CSP
+  estrita (`script-src`/`connect-src 'self'`). Migrar para cookies `HttpOnly` exigiria proteção CSRF.
+- **Criptografia em repouso:** o conteúdo clínico (JSONB) depende da criptografia em repouso do
+  provedor (o **Neon criptografa os dados em repouso por padrão**). Criptografia em nível de coluna
+  (pgcrypto) não foi adotada porque inviabilizaria a busca full-text sobre `exams.data`.
+
+### Checklist de produção
+
+1. `AUTH_USERS` definido com senhas fortes e únicas.
+2. `JWT_SECRET` aleatório e estável (`openssl rand -hex 32`).
+3. `DATABASE_URL` (Neon) configurado e com backups habilitados.
+4. `CORS_ORIGIN` vazio (same-origin) ou restrito às origens necessárias.
+5. HTTPS na borda (Railway já fornece TLS).
 
 ## Desenvolvimento
 
@@ -68,6 +118,17 @@ Frontend dev em `http://localhost:5173` (faz proxy de `/api` para o Express em `
 npm run build   # instala e builda o app/ -> app/build
 npm start       # Express serve app/build + /api  (porta $PORT ou 8080)
 ```
+
+## Testes
+
+```bash
+npm test           # testes do backend (Vitest): autenticação + integração da API
+npm run test:app   # testes do frontend (Vitest): utilitários + pontuação de escalas
+npm run test:all   # ambos
+```
+
+Os testes não exigem banco nem OpenAI (usam os caminhos de degradação graciosa).
+O pipeline de **CI** (`.github/workflows/ci.yml`) roda typecheck, testes e build a cada push/PR.
 
 ## Deploy no Railway
 

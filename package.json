@@ -1,6 +1,6 @@
 {
   "name": "sopsi",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "SOPsi 2.0 — Registro Clínico Estruturado em Saúde Mental",
   "type": "module",
   "engines": {
@@ -14,12 +14,18 @@
     "build": "npm run build:app",
     "start": "tsx server/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:app": "npm --prefix app run test",
+    "test:all": "npm run test && npm run test:app",
     "postinstall": "echo 'SOPsi root deps instaladas'"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
     "multer": "^2.0.1",
     "openai": "^4.77.0",
     "pg": "^8.13.1",
@@ -32,7 +38,10 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
+    "@types/supertest": "^6.0.2",
     "concurrently": "^9.1.2",
-    "typescript": "^5.7.3"
+    "supertest": "^7.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }

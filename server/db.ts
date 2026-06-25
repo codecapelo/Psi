@@ -53,12 +53,13 @@ export async function audit(
   entity: string,
   entityId?: string | null,
   detail?: string | null,
+  actor?: string | null,
 ): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO audit_log (action, entity, entity_id, detail) VALUES ($1,$2,$3,$4)`,
-      [action, entity, entityId ?? null, detail ?? null],
+      `INSERT INTO audit_log (action, entity, entity_id, detail, actor) VALUES ($1,$2,$3,$4,$5)`,
+      [action, entity, entityId ?? null, detail ?? null, actor ?? null],
     );
   } catch (err) {
     console.error("[audit] falha ao registrar:", err);
@@ -94,8 +95,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
   entity     text NOT NULL,
   entity_id  text,
   detail     text,
+  actor      text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+-- Coluna 'actor' (quem executou) adicionada em 2.1 para trilha LGPD por usuário.
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS actor text;
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 
 CREATE TABLE IF NOT EXISTS mosp_memories (

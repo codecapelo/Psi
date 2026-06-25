@@ -33,6 +33,7 @@ examsRouter.get("/patients/:patientId/exams", async (req, res, next) => {
       `SELECT * FROM exams WHERE patient_id = $1 ORDER BY created_at DESC`,
       [req.params.patientId],
     );
+    await audit("READ", "exam", null, `lista do paciente ${req.params.patientId}`, req.user?.email);
     res.json(rows.map(toExam));
   } catch (err) {
     next(err);
@@ -46,7 +47,7 @@ examsRouter.post("/patients/:patientId/exams", async (req, res, next) => {
       `INSERT INTO exams (patient_id) VALUES ($1) RETURNING *`,
       [req.params.patientId],
     );
-    await audit("CREATE", "exam", rows[0].id, `paciente ${req.params.patientId}`);
+    await audit("CREATE", "exam", rows[0].id, `paciente ${req.params.patientId}`, req.user?.email);
     res.status(201).json(toExam(rows[0]));
   } catch (err) {
     next(err);
@@ -70,7 +71,7 @@ examsRouter.get("/exams/:id", async (req, res, next) => {
     );
     if (rows.length === 0) return res.status(404).json({ error: "Exame não encontrado." });
     const r = rows[0];
-    await audit("READ", "exam", r.id);
+    await audit("READ", "exam", r.id, null, req.user?.email);
     res.json({
       ...toExam(r),
       patient: {
@@ -107,7 +108,7 @@ examsRouter.patch("/exams/:id", async (req, res, next) => {
       [req.params.id, status ?? null, context ?? null],
     );
     if (rows.length === 0) return res.status(404).json({ error: "Exame não encontrado." });
-    await audit("UPDATE", "exam", req.params.id, status ? `status=${status}` : null);
+    await audit("UPDATE", "exam", req.params.id, status ? `status=${status}` : null, req.user?.email);
     res.json(toExam(rows[0]));
   } catch (err) {
     next(err);
@@ -142,7 +143,7 @@ examsRouter.delete("/exams/:id", async (req, res, next) => {
       req.params.id,
     ]);
     if (!rowCount) return res.status(404).json({ error: "Exame não encontrado." });
-    await audit("DELETE", "exam", req.params.id);
+    await audit("DELETE", "exam", req.params.id, null, req.user?.email);
     res.status(204).end();
   } catch (err) {
     next(err);
