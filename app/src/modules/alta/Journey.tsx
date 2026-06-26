@@ -23,7 +23,7 @@ export function AltaJourney({
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-50 text-accent-600 ring-1 ring-inset ring-accent-100 dark:bg-accent-900/30 dark:text-accent-300 dark:ring-accent-900/40">
           <Route className="h-3.5 w-3.5" />
         </span>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
           Caminho do episódio
         </p>
       </div>

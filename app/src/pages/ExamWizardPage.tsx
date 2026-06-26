@@ -154,7 +154,7 @@ function WizardInner({ stepId }: { stepId?: string }) {
         <nav className="flex-1 space-y-4 p-3">
           {grouped.map(({ group, steps: gsteps }) => (
             <div key={group}>
-              <p className="px-2 pb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <p className="px-2 pb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 {group}
               </p>
               <div className="space-y-0.5">

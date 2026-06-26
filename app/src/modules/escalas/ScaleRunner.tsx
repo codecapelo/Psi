@@ -106,7 +106,7 @@ export function ScaleRunner({
               {def.description}
             </p>
             {def.reference && (
-              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Ref.: {def.reference}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Ref.: {def.reference}</p>
             )}
           </div>
         </div>
@@ -190,7 +190,7 @@ export function ScaleRunner({
 
       <Card className="sticky bottom-2 mt-4 flex items-center justify-between gap-4 p-4 shadow-pop ring-1 ring-slate-900/5 dark:ring-white/10">
         <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          <div className="text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-300">
             {answeredCount}/{def.items.length} itens respondidos
           </div>
           <div className="mt-1.5 h-1.5 w-32 max-w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -202,7 +202,7 @@ export function ScaleRunner({
         </div>
         <div className="flex shrink-0 items-baseline gap-3">
           <div className="text-right">
-            <div className="text-[0.65rem] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            <div className="text-[0.65rem] font-medium uppercase tracking-wider text-slate-600 dark:text-slate-300">
               Escore
             </div>
             <span className="text-3xl font-bold leading-none tabular-nums text-slate-900 dark:text-slate-100">

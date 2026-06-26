@@ -77,7 +77,7 @@ function EncounterNode({
         <div className="mt-2.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
           {formatDate(exam.createdAt)}
         </div>
-        <div className="text-xs tabular-nums text-slate-400 dark:text-slate-500">{formatDate(exam.createdAt, true).split(" ")[1]}</div>
+        <div className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{formatDate(exam.createdAt, true).split(" ")[1]}</div>
         <div className="mt-2 flex items-center gap-1.5">
           {exam.lockedAt ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-900/40">
@@ -105,7 +105,7 @@ function EncounterNode({
 function Connector({ label }: { label: string }) {
   return (
     <div className="flex w-16 shrink-0 flex-col items-center justify-center px-1 pt-6">
-      <span className="whitespace-nowrap text-[10px] font-medium tabular-nums text-slate-400 dark:text-slate-500">{label}</span>
+      <span className="whitespace-nowrap text-[10px] font-medium tabular-nums text-slate-500 dark:text-slate-400">{label}</span>
       <div className="mt-1 h-px w-full bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800" />
     </div>
   );
@@ -398,7 +398,7 @@ function EpisodeTrack({
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             {episode.titulo || formatDate(episode.openedAt)}
           </span>
-          <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">
+          <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
             {formatDate(episode.openedAt)}
             {episode.closedAt ? ` → ${formatDate(episode.closedAt)}` : ""}
           </span>
