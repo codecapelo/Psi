@@ -1,6 +1,8 @@
 # dependencies
 node_modules/
 app/node_modules/
+# design-sync DTS-parser symlink (repo-root node_modules → app/node_modules)
+/node_modules
 
 # build output
 app/build/
@@ -25,3 +27,10 @@ logs/
 # misc
 coverage/
 .tmp/
+
+# design-sync (claude.ai/design) — staged scripts, build output, caches
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
