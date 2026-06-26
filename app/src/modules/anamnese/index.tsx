@@ -436,11 +436,14 @@ export default function AnamneseStep() {
         ),
       ];
       if (valid.length === 0) continue;
-      if ((latestPsico[d.id]?.selected ?? []).length) {
-        domainsPreserved++; // já marcado pelo profissional — preserva
+      // Domínio com qualquer conteúdo do profissional (achados marcados OU
+      // observação livre) é preservado — não mistura sugestões da IA por cima.
+      const existing = latestPsico[d.id];
+      if ((existing?.selected ?? []).length || (existing?.notes ?? "").trim()) {
+        domainsPreserved++;
         continue;
       }
-      psicoUpdates[d.id] = { selected: valid, notes: latestPsico[d.id]?.notes ?? "" };
+      psicoUpdates[d.id] = { selected: valid, notes: existing?.notes ?? "" };
       domainsMarked++;
       findingsMarked += valid.length;
     }
