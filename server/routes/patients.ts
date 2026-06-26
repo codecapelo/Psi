@@ -9,6 +9,7 @@ interface PatientRow {
   name: string;
   external_id: string | null;
   summary: string | null;
+  details: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -19,18 +20,58 @@ function toPatient(r: PatientRow) {
     name: r.name,
     externalId: r.external_id,
     summary: r.summary,
+    details: r.details ?? {},
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
 }
+
+/**
+ * Serializer da LISTA — OMITE `details` (CPF, RG, endereço, telefone…). A
+ * listagem/busca pode trazer até 500 pacientes e a UI só usa nome/ID/datas;
+ * expor cadastro em massa ampliaria desnecessariamente a PII no payload.
+ * Os detalhes ficam no GET individual e no detalhe do exame, que de fato os usam.
+ */
+function toPatientListItem(r: Omit<PatientRow, "details">) {
+  return {
+    id: r.id,
+    name: r.name,
+    externalId: r.external_id,
+    summary: r.summary,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+// Dados cadastrais opcionais. Whitelist de campos (chaves desconhecidas são
+// descartadas pelo zod) — só o nome do paciente é obrigatório.
+const detailsSchema = z
+  .object({
+    nascimento: z.string().trim(),
+    sexo: z.string().trim(),
+    cpf: z.string().trim(),
+    rg: z.string().trim(),
+    nomeMae: z.string().trim(),
+    nacionalidade: z.string().trim(),
+    naturalidade: z.string().trim(),
+    estadoCivil: z.string().trim(),
+    profissao: z.string().trim(),
+    escolaridade: z.string().trim(),
+    endereco: z.string().trim(),
+    telefone: z.string().trim(),
+  })
+  .partial();
 
 // GET /patients?q=  — lista com busca full-text (nome, id, resumo, anamnese)
 patientsRouter.get("/patients", async (req, res, next) => {
   try {
     const q = (req.query.q as string | undefined)?.trim();
     const like = q ? `%${q}%` : null;
-    const { rows } = await query<PatientRow>(
-      `SELECT p.* FROM patients p
+    // Não selecionamos `details` aqui — a lista não os usa e não devem trafegar
+    // em massa (ver toPatientListItem).
+    const { rows } = await query<Omit<PatientRow, "details">>(
+      `SELECT p.id, p.name, p.external_id, p.summary, p.created_at, p.updated_at
+       FROM patients p
        WHERE ($1::text IS NULL
               OR p.name ILIKE $1
               OR coalesce(p.external_id,'') ILIKE $1
@@ -43,7 +84,7 @@ patientsRouter.get("/patients", async (req, res, next) => {
     );
     // LGPD: acesso a dados de pacientes é auditado (inclusive buscas).
     await audit("READ", "patient", null, q ? `busca: ${q}` : "lista", req.user?.email);
-    res.json(rows.map(toPatient));
+    res.json(rows.map(toPatientListItem));
   } catch (err) {
     next(err);
   }
@@ -66,6 +107,7 @@ patientsRouter.get("/patients/:id", async (req, res, next) => {
 const createSchema = z.object({
   name: z.string().trim().min(1, "Nome é obrigatório."),
   externalId: z.string().trim().nullish(),
+  details: detailsSchema.optional(),
 });
 
 patientsRouter.post("/patients", async (req, res, next) => {
@@ -73,10 +115,11 @@ patientsRouter.post("/patients", async (req, res, next) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success)
       return res.status(400).json({ error: parsed.error.issues[0]?.message });
-    const { name, externalId } = parsed.data;
+    const { name, externalId, details } = parsed.data;
     const { rows } = await query<PatientRow>(
-      `INSERT INTO patients (name, external_id) VALUES ($1, $2) RETURNING *`,
-      [name, externalId || null],
+      `INSERT INTO patients (name, external_id, details)
+       VALUES ($1, $2, $3::jsonb) RETURNING *`,
+      [name, externalId || null, JSON.stringify(details ?? {})],
     );
     await audit("CREATE", "patient", rows[0].id, name, req.user?.email);
     res.status(201).json(toPatient(rows[0]));
@@ -89,6 +132,7 @@ const updateSchema = z.object({
   name: z.string().trim().min(1).optional(),
   externalId: z.string().trim().nullish(),
   summary: z.string().nullish(),
+  details: detailsSchema.optional(),
 });
 
 patientsRouter.patch("/patients/:id", async (req, res, next) => {
@@ -96,15 +140,18 @@ patientsRouter.patch("/patients/:id", async (req, res, next) => {
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success)
       return res.status(400).json({ error: parsed.error.issues[0]?.message });
-    const { name, externalId, summary } = parsed.data;
+    const { name, externalId, summary, details } = parsed.data;
     const { rows } = await query<PatientRow>(
       `UPDATE patients SET
          name = COALESCE($2, name),
          external_id = COALESCE($3, external_id),
          summary = COALESCE($4, summary),
+         -- MESCLA (||) os detalhes enviados sobre os existentes: um PATCH parcial
+         -- (ex.: só telefone) preserva nascimento/CPF/endereço já salvos.
+         details = CASE WHEN $5::jsonb IS NULL THEN details ELSE details || $5::jsonb END,
          updated_at = now()
        WHERE id = $1 RETURNING *`,
-      [req.params.id, name ?? null, externalId ?? null, summary ?? null],
+      [req.params.id, name ?? null, externalId ?? null, summary ?? null, details ? JSON.stringify(details) : null],
     );
     if (rows.length === 0) return res.status(404).json({ error: "Paciente não encontrado." });
     await audit("UPDATE", "patient", req.params.id, null, req.user?.email);

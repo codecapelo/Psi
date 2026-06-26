@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +16,7 @@ import apiClient from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { Button, Card, Badge, EmptyState, Spinner } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import type { Exam, EpisodeWithExams } from "@/lib/types";
 
 // --------------------------------------------------------------------------
@@ -112,6 +113,7 @@ export default function PatientHistoryPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [toDiscard, setToDiscard] = useState<EpisodeWithExams | null>(null);
 
   const patientQ = useQuery({
     queryKey: ["patient", patientId],
@@ -144,7 +146,22 @@ export default function PatientHistoryPage() {
   const newInternacao = useMutation({
     mutationFn: () => apiClient.episodes.startInternacao(patientId!),
     onSuccess: openFresh,
-    onError: () => toast("Erro ao iniciar a internação.", "error"),
+    // O servidor recusa (409) uma 2ª internação aberta com mensagem clara.
+    onError: (err) => {
+      invalidate();
+      toast(err instanceof Error ? err.message : "Erro ao iniciar a internação.", "error");
+    },
+  });
+
+  const discardEpisode = useMutation({
+    mutationFn: (id: string) => apiClient.episodes.remove(id),
+    onSuccess: () => {
+      invalidate();
+      toast("Internação descartada.", "success");
+      setToDiscard(null);
+    },
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : "Erro ao descartar a internação.", "error"),
   });
 
   const newConsulta = useMutation({
@@ -269,6 +286,7 @@ export default function PatientHistoryPage() {
               onDelete={(id) => deleteExam.mutate(id)}
               onAddEvolucao={() => addEvolucao.mutate(ep.id)}
               onDarAlta={() => darAlta.mutate(ep.id)}
+              onDiscard={() => setToDiscard(ep)}
             />
           ))}
 
@@ -297,6 +315,25 @@ export default function PatientHistoryPage() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!toDiscard}
+        onClose={() => setToDiscard(null)}
+        onConfirm={() => toDiscard && discardEpisode.mutate(toDiscard.id)}
+        title="Descartar internação"
+        message={
+          <>
+            Descartar esta internação
+            {toDiscard && toDiscard.exams.length > 0
+              ? ` e seus ${toDiscard.exams.length} atendimento(s) não assinado(s)`
+              : ""}
+            ? Esta ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Descartar"
+        danger
+        loading={discardEpisode.isPending}
+      />
     </div>
   );
 }
@@ -311,6 +348,7 @@ function EpisodeTrack({
   onDelete,
   onAddEvolucao,
   onDarAlta,
+  onDiscard,
 }: {
   episode: EpisodeWithExams;
   busy: boolean;
@@ -318,10 +356,17 @@ function EpisodeTrack({
   onDelete: (id: string) => void;
   onAddEvolucao: () => void;
   onDarAlta: () => void;
+  onDiscard: () => void;
 }) {
   const exams = [...episode.exams].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
   const aberto = episode.status === "aberto";
   const isInternacao = episode.tipo === "internacao";
+  // Só é possível descartar um episódio sem NENHUM atendimento assinado
+  // (registro assinado é imutável). Resolve internações abertas vazias/equívocas.
+  const canDiscard = !exams.some((e) => e.lockedAt);
+  // Já existe uma alta (rascunho ou assinada): não oferecemos "Dar alta" de novo
+  // (violaria uq_exams_episode_alta). O episódio só fecha ao assinar a alta.
+  const hasAlta = exams.some((e) => e.tipo === "alta");
 
   return (
     <Card className="p-4">
@@ -339,6 +384,18 @@ function EpisodeTrack({
           </span>
           <Badge color={aberto ? "amber" : "green"}>{aberto ? "Aberto" : "Encerrado"}</Badge>
         </div>
+        {canDiscard && (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Trash2 className="h-4 w-4 text-red-500" />}
+            disabled={busy}
+            onClick={onDiscard}
+            title="Descartar este episódio (nenhum atendimento assinado)"
+          >
+            Descartar
+          </Button>
+        )}
       </div>
 
       <div className="flex items-stretch overflow-x-auto pb-2">
@@ -353,8 +410,10 @@ function EpisodeTrack({
           </Fragment>
         ))}
 
-        {/* Ações da internação aberta */}
-        {aberto && isInternacao && (
+        {/* Ações da internação aberta. Quando já há alta (rascunho/assinada), a
+            internação está em fechamento — não oferecemos novos atendimentos
+            (uma evolução nova apareceria depois da alta na cronologia). */}
+        {aberto && isInternacao && !hasAlta && (
           <>
             {exams.length > 0 && <Connector label="" />}
             <div className="flex w-44 shrink-0 flex-col justify-center gap-2 rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-700">
@@ -381,9 +440,11 @@ function EpisodeTrack({
         )}
       </div>
 
-      {aberto && isInternacao && exams.length > 0 && !exams.some((e) => e.tipo === "alta") && (
+      {aberto && isInternacao && exams.length > 0 && (
         <p className="mt-1 text-xs text-slate-400">
-          Internação aberta — registre evoluções e finalize com a alta.
+          {hasAlta
+            ? "Alta iniciada — abra-a e assine para encerrar a internação."
+            : "Internação aberta — registre evoluções e finalize com a alta."}
         </p>
       )}
     </Card>

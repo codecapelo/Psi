@@ -10,6 +10,27 @@
 // migrations por módulo e sem conflito de arquivos.
 // ==========================================================================
 
+/**
+ * Dados cadastrais opcionais do paciente. Preenchidos no cadastro (todos
+ * opcionais — só o nome é obrigatório) e usados para preencher documentos
+ * automaticamente (placeholders dos laudos).
+ */
+export interface PatientDetails {
+  /** Data de nascimento (yyyy-mm-dd). A idade é derivada dela. */
+  nascimento?: string;
+  sexo?: string;
+  cpf?: string;
+  rg?: string;
+  nomeMae?: string;
+  nacionalidade?: string;
+  naturalidade?: string;
+  estadoCivil?: string;
+  profissao?: string;
+  escolaridade?: string;
+  endereco?: string;
+  telefone?: string;
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -17,6 +38,8 @@ export interface Patient {
   externalId?: string | null;
   /** Resumo denormalizado para busca/listagem. */
   summary?: string | null;
+  /** Dados cadastrais opcionais (nascimento, sexo, CPF, filiação…). */
+  details?: PatientDetails | null;
   createdAt: string;
   updatedAt: string;
 }

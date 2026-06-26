@@ -71,10 +71,12 @@ examsRouter.get("/exams/:id", async (req, res, next) => {
     const { rows } = await query<ExamRow & {
       p_name: string;
       p_external_id: string | null;
+      p_details: Record<string, unknown> | null;
       p_created_at: string;
       p_updated_at: string;
     }>(
       `SELECT e.*, p.name AS p_name, p.external_id AS p_external_id,
+              p.details AS p_details,
               p.created_at AS p_created_at, p.updated_at AS p_updated_at
        FROM exams e JOIN patients p ON p.id = e.patient_id
        WHERE e.id = $1`,
@@ -89,6 +91,7 @@ examsRouter.get("/exams/:id", async (req, res, next) => {
         id: r.patient_id,
         name: r.p_name,
         externalId: r.p_external_id,
+        details: r.p_details ?? {},
         createdAt: r.p_created_at,
         updatedAt: r.p_updated_at,
       },
@@ -201,6 +204,16 @@ examsRouter.post("/exams/:id/lock", async (req, res, next) => {
          WHERE id = $1 RETURNING *`,
         [row.id, lockedAt, hash],
       );
+      // Assinar a ALTA encerra o episódio (antes ficava aberto até a assinatura,
+      // pois um rascunho de alta não conta como alta efetiva). Mesma transação
+      // do lock → atômico.
+      if (row.tipo === "alta" && row.episode_id) {
+        await client.query(
+          `UPDATE episodes SET status = 'encerrado', closed_at = now(), updated_at = now()
+           WHERE id = $1 AND status <> 'encerrado'`,
+          [row.episode_id],
+        );
+      }
       return { status: 201 as const, exam: toExam(updated[0]), hash };
     });
 

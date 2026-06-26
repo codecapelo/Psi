@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,15 +8,22 @@ import {
   LineChart,
   FilePlus2,
   Users,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  DoorOpen,
+  Activity,
+  LogOut,
 } from "lucide-react";
 import apiClient from "@/lib/api";
-import type { Patient } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import type { Exam, Patient, PatientDetails } from "@/lib/types";
+import { formatDate, cn } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import {
   Button,
   Card,
   Input,
+  Select,
   Field,
   Modal,
   EmptyState,
@@ -28,6 +35,8 @@ export default function PatientsPage() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [toDelete, setToDelete] = useState<Patient | null>(null);
+  // "Novo Exame" abre um diálogo para escolher a modalidade (consulta × internação).
+  const [startFor, setStartFor] = useState<Patient | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -35,12 +44,6 @@ export default function PatientsPage() {
   const patientsQ = useQuery({
     queryKey: ["patients", search],
     queryFn: () => apiClient.patients.list(search || undefined),
-  });
-
-  const createExam = useMutation({
-    mutationFn: (patientId: string) => apiClient.exams.create(patientId),
-    onSuccess: (exam) => navigate(`/exame/${exam.id}`),
-    onError: (e) => toast(e instanceof Error ? e.message : "Erro", "error"),
   });
 
   const deletePatient = useMutation({
@@ -123,8 +126,7 @@ export default function PatientsPage() {
                   variant="primary"
                   size="sm"
                   icon={<FilePlus2 className="h-4 w-4" />}
-                  loading={createExam.isPending && createExam.variables === p.id}
-                  onClick={() => createExam.mutate(p.id)}
+                  onClick={() => setStartFor(p)}
                 >
                   Novo Exame
                 </Button>
@@ -149,6 +151,8 @@ export default function PatientsPage() {
           ))}
         </div>
       )}
+
+      <StartExamModal patient={startFor} onClose={() => setStartFor(null)} />
 
       <CreatePatientModal
         open={showCreate}
@@ -178,6 +182,205 @@ export default function PatientsPage() {
   );
 }
 
+// --------------------------------------------------------------------------
+// Diálogo "Iniciar atendimento" — escolha explícita da modalidade.
+//   • sem internação aberta → Consulta avulsa | Nova internação
+//   • com internação aberta → Nova evolução | Dar alta | Consulta avulsa
+// --------------------------------------------------------------------------
+function ChoiceRow({
+  icon,
+  title,
+  subtitle,
+  primary,
+  disabled,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  primary?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        primary
+          ? "border-brand-200 bg-brand-50 hover:bg-brand-100 dark:border-brand-900/50 dark:bg-brand-900/20 dark:hover:bg-brand-900/30"
+          : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
+      )}
+    >
+      <span className={cn("shrink-0", primary ? "text-brand-600 dark:text-brand-400" : "text-slate-400")}>
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-slate-800 dark:text-slate-100">{title}</span>
+        <span className="block text-xs text-slate-500 dark:text-slate-400">{subtitle}</span>
+      </span>
+    </button>
+  );
+}
+
+function StartExamModal({
+  patient,
+  onClose,
+}: {
+  patient: Patient | null;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const episodesQ = useQuery({
+    queryKey: ["episodes", patient?.id],
+    queryFn: () => apiClient.episodes.listByPatient(patient!.id),
+    enabled: !!patient,
+  });
+
+  // Internação aberta = episódio internação em status "aberto". Espelha a
+  // INVARIANTE do servidor (uma internação aberta por paciente, checada só por
+  // tipo+status) — NÃO exigimos uma admissão aqui. Se a admissão foi excluída
+  // (internação "fantasma") ou em dados antigos, ainda assim a tratamos como
+  // aberta: oferecer "Nova internação" tomaria 409; em vez disso o clínico
+  // continua/encerra a existente por este fluxo (ou a descarta na cronologia).
+  // Obs.: como o episódio só fecha ao ASSINAR a alta, um rascunho de alta não
+  // assinado NÃO conta como encerrado — a internação segue aberta.
+  const internacaoAberta = episodesQ.data?.find(
+    (ep) => ep.tipo === "internacao" && ep.status === "aberto",
+  );
+  // Rascunho de alta já iniciado (não assinado): oferecemos continuá-lo em vez
+  // de criar outra alta (que violaria uq_exams_episode_alta → 409).
+  const altaDraft = internacaoAberta?.exams.find((e) => e.tipo === "alta" && !e.lockedAt);
+
+  const start = useMutation({
+    mutationFn: (fn: () => Promise<Exam>) => fn(),
+    onSuccess: (exam) => {
+      onClose();
+      navigate(`/exame/${exam.id}`);
+    },
+    onError: (e) =>
+      toast(e instanceof Error ? e.message : "Erro ao iniciar o atendimento.", "error"),
+  });
+  const busy = start.isPending;
+
+  const openExisting = (examId: string) => {
+    onClose();
+    navigate(`/exame/${examId}`);
+  };
+
+  return (
+    <Modal open={!!patient} onClose={onClose} title="Iniciar atendimento" size="sm">
+      {patient && (
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+          Paciente:{" "}
+          <strong className="text-slate-700 dark:text-slate-200">{patient.name}</strong>
+        </p>
+      )}
+
+      {episodesQ.isLoading ? (
+        <div className="flex justify-center py-8">
+          <Spinner />
+        </div>
+      ) : internacaoAberta ? (
+        <div className="space-y-2">
+          <p className="mb-1 text-sm text-amber-700 dark:text-amber-400">
+            Este paciente tem uma internação aberta.
+          </p>
+          {altaDraft ? (
+            // Alta já iniciada: a internação está em fechamento — não oferecemos
+            // nova evolução (apareceria depois da alta na cronologia). Continue a
+            // alta e assine, ou descarte o rascunho pela cronologia.
+            <ChoiceRow
+              icon={<LogOut className="h-5 w-5" />}
+              title="Continuar alta"
+              subtitle="Retomar o resumo de alta ainda não assinado — assine para encerrar."
+              primary
+              disabled={busy}
+              onClick={() => openExisting(altaDraft.id)}
+            />
+          ) : (
+            <>
+              <ChoiceRow
+                icon={<Activity className="h-5 w-5" />}
+                title="Nova evolução"
+                subtitle="Continua a internação em curso."
+                primary
+                disabled={busy}
+                onClick={() =>
+                  start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "evolucao"))
+                }
+              />
+              <ChoiceRow
+                icon={<LogOut className="h-5 w-5" />}
+                title="Dar alta"
+                subtitle="Resumo de alta — encerra a internação ao assinar."
+                disabled={busy}
+                onClick={() =>
+                  start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "alta"))
+                }
+              />
+            </>
+          )}
+          <ChoiceRow
+            icon={<FileText className="h-5 w-5" />}
+            title="Consulta avulsa"
+            subtitle="Atendimento único, fora da internação."
+            disabled={busy}
+            onClick={() => start.mutate(() => apiClient.exams.create(patient!.id))}
+          />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <ChoiceRow
+            icon={<FileText className="h-5 w-5" />}
+            title="Consulta avulsa"
+            subtitle="Atendimento único (ambulatório, consultório)."
+            primary
+            disabled={busy}
+            onClick={() => start.mutate(() => apiClient.exams.create(patient!.id))}
+          />
+          <ChoiceRow
+            icon={<DoorOpen className="h-5 w-5" />}
+            title="Nova internação"
+            subtitle="Abre admissão → evoluções → alta."
+            disabled={busy}
+            onClick={() => start.mutate(() => apiClient.episodes.startInternacao(patient!.id))}
+          />
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+const EMPTY_DETAILS: PatientDetails = {
+  nascimento: "",
+  sexo: "",
+  cpf: "",
+  rg: "",
+  nomeMae: "",
+  nacionalidade: "",
+  naturalidade: "",
+  estadoCivil: "",
+  profissao: "",
+  escolaridade: "",
+  endereco: "",
+  telefone: "",
+};
+
+/** Remove campos vazios para não persistir strings em branco. */
+function cleanDetails(d: PatientDetails): PatientDetails {
+  const out: PatientDetails = {};
+  for (const [k, v] of Object.entries(d)) {
+    const val = (v ?? "").trim();
+    if (val) out[k as keyof PatientDetails] = val;
+  }
+  return out;
+}
+
 function CreatePatientModal({
   open,
   onClose,
@@ -189,15 +392,30 @@ function CreatePatientModal({
 }) {
   const [name, setName] = useState("");
   const [externalId, setExternalId] = useState("");
+  const [details, setDetails] = useState<PatientDetails>(EMPTY_DETAILS);
+  const [showMore, setShowMore] = useState(false);
   const { toast } = useToast();
+
+  const setField = (key: keyof PatientDetails, value: string) =>
+    setDetails((d) => ({ ...d, [key]: value }));
+
+  const reset = () => {
+    setName("");
+    setExternalId("");
+    setDetails(EMPTY_DETAILS);
+    setShowMore(false);
+  };
 
   const create = useMutation({
     mutationFn: () =>
-      apiClient.patients.create({ name: name.trim(), externalId: externalId.trim() || null }),
+      apiClient.patients.create({
+        name: name.trim(),
+        externalId: externalId.trim() || null,
+        details: cleanDetails(details),
+      }),
     onSuccess: () => {
       toast("Paciente cadastrado.", "success");
-      setName("");
-      setExternalId("");
+      reset();
       onCreated();
     },
     onError: (e) => toast(e instanceof Error ? e.message : "Erro", "error"),
@@ -223,6 +441,74 @@ function CreatePatientModal({
           placeholder="Opcional"
         />
       </Field>
+
+      {/* Dados cadastrais opcionais — preenchem documentos automaticamente. */}
+      <button
+        type="button"
+        onClick={() => setShowMore((v) => !v)}
+        className="mb-2 flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+      >
+        {showMore ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        Mais dados do paciente (opcional)
+      </button>
+
+      {showMore && (
+        <div className="mb-2 grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+          <Field label="Data de nascimento">
+            <Input
+              type="date"
+              value={details.nascimento ?? ""}
+              onChange={(e) => setField("nascimento", e.target.value)}
+            />
+          </Field>
+          <Field label="Sexo / Gênero">
+            <Select value={details.sexo ?? ""} onChange={(e) => setField("sexo", e.target.value)}>
+              <option value="">—</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Feminino">Feminino</option>
+              <option value="Outro">Outro</option>
+            </Select>
+          </Field>
+          <Field label="CPF">
+            <Input value={details.cpf ?? ""} onChange={(e) => setField("cpf", e.target.value)} placeholder="000.000.000-00" />
+          </Field>
+          <Field label="RG">
+            <Input value={details.rg ?? ""} onChange={(e) => setField("rg", e.target.value)} />
+          </Field>
+          <Field label="Nome da mãe" className="sm:col-span-2">
+            <Input value={details.nomeMae ?? ""} onChange={(e) => setField("nomeMae", e.target.value)} />
+          </Field>
+          <Field label="Estado civil">
+            <Select value={details.estadoCivil ?? ""} onChange={(e) => setField("estadoCivil", e.target.value)}>
+              <option value="">—</option>
+              <option value="Solteiro(a)">Solteiro(a)</option>
+              <option value="Casado(a)">Casado(a)</option>
+              <option value="Divorciado(a)">Divorciado(a)</option>
+              <option value="Viúvo(a)">Viúvo(a)</option>
+              <option value="União estável">União estável</option>
+            </Select>
+          </Field>
+          <Field label="Profissão">
+            <Input value={details.profissao ?? ""} onChange={(e) => setField("profissao", e.target.value)} />
+          </Field>
+          <Field label="Escolaridade">
+            <Input value={details.escolaridade ?? ""} onChange={(e) => setField("escolaridade", e.target.value)} />
+          </Field>
+          <Field label="Telefone">
+            <Input value={details.telefone ?? ""} onChange={(e) => setField("telefone", e.target.value)} placeholder="(00) 00000-0000" />
+          </Field>
+          <Field label="Naturalidade (cidade/UF)">
+            <Input value={details.naturalidade ?? ""} onChange={(e) => setField("naturalidade", e.target.value)} />
+          </Field>
+          <Field label="Nacionalidade">
+            <Input value={details.nacionalidade ?? ""} onChange={(e) => setField("nacionalidade", e.target.value)} placeholder="Brasileira" />
+          </Field>
+          <Field label="Endereço" className="sm:col-span-2">
+            <Input value={details.endereco ?? ""} onChange={(e) => setField("endereco", e.target.value)} placeholder="Rua, nº, bairro, cidade/UF" />
+          </Field>
+        </div>
+      )}
+
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>
           Cancelar

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PenLine, Stethoscope } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea, Button, Badge, Spinner } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AiAssistButton, AiDisclaimer } from "@/components/ai";
 import { useExam, useExamSlice } from "@/context/ExamContext";
 import { useToast } from "@/context/ToastContext";
@@ -87,6 +88,7 @@ export default function AltaStep() {
   const { exam, locked, lock } = useExam();
   const { toast } = useToast();
   const [signing, setSigning] = useState(false);
+  const [confirmSign, setConfirmSign] = useState(false);
 
   const patientId = exam?.patientId;
   const episodeId = exam?.episodeId ?? null;
@@ -103,8 +105,8 @@ export default function AltaStep() {
     .filter((ex) => ex.tipo !== "alta")
     .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
 
-  const sign = async () => {
-    if (!window.confirm("Assinar a alta? O documento fica imutável e o episódio é encerrado.")) return;
+  const doSign = async () => {
+    setConfirmSign(false);
     setSigning(true);
     try {
       await lock();
@@ -127,7 +129,7 @@ export default function AltaStep() {
             size="sm"
             icon={<PenLine className="h-4 w-4" />}
             loading={signing}
-            onClick={sign}
+            onClick={() => setConfirmSign(true)}
           >
             Assinar alta
           </Button>
@@ -250,6 +252,16 @@ export default function AltaStep() {
           {alta.resumo && <AiDisclaimer />}
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={confirmSign}
+        onClose={() => setConfirmSign(false)}
+        onConfirm={() => void doSign()}
+        title="Assinar alta"
+        message="Assinar a alta? O documento fica imutável e o episódio é encerrado."
+        confirmLabel="Assinar alta"
+        loading={signing}
+      />
     </StepShell>
   );
 }

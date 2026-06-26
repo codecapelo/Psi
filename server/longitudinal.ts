@@ -99,8 +99,10 @@ function eemFromPsicopatologia(data: Record<string, unknown> | undefined): EemMa
  * Monta os dados iniciais de uma evolução.
  *
  * - source = última evolução do episódio → copia o SOAP+EEM dela (carry-forward).
- * - source = admissão/consulta → semeia: EEM ← psicopatologia; A ← diagnóstico;
- *   P ← orientações do PTS; S/O começam vazios.
+ * - source = admissão/consulta → semeia: EEM ← psicopatologia; P ← orientações
+ *   do PTS; S/O/A começam vazios. O "A" (avaliação) é deixado LIVRE de propósito:
+ *   cada evolução recebe a impressão do dia escrita do zero — o diagnóstico da
+ *   admissão fica disponível no painel de acompanhamento da lateral, não no campo.
  * - source = null (1ª evolução sem âncora) → tudo vazio.
  *
  * A evolução do dia NASCE igual à linha de base (`prev`); o médico edita a
@@ -126,13 +128,13 @@ export function buildEvolucaoSeed(
       };
     } else {
       // admissao | consulta — semeia a partir das fatias clínicas.
-      const diag = (source.data?.diagnostico ?? {}) as Record<string, unknown>;
+      // O "A" (avaliação) fica LIVRE: não herda o diagnóstico da admissão, para
+      // que o profissional escreva a impressão do dia. EEM e P são semeados.
       const pts = (source.data?.pts ?? {}) as Record<string, unknown>;
-      const a = [str(diag.sindromico), str(diag.nosologico)].filter(Boolean).join(" — ");
       prev = {
         s: "",
         o: "",
-        a,
+        a: "",
         p: str(pts.orientacoes),
         eem: eemFromPsicopatologia(source.data),
         sourceTipo: source.tipo,

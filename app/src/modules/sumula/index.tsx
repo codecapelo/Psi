@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search, ClipboardCheck } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Badge, Button, Field, Input, Textarea } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AiAssistButton, AiDisclaimer } from "@/components/ai";
 import { useExamSlice } from "@/context/ExamContext";
 import { SLICE } from "@/modules/sliceKeys";
@@ -53,6 +54,7 @@ export default function SumulaStep() {
 
   // Estado local: busca
   const [query, setQuery] = useState("");
+  const [confirmFill, setConfirmFill] = useState(false);
   const normalizedQuery = query.trim().toLowerCase();
 
   // Filtra domínios conforme a busca
@@ -65,13 +67,9 @@ export default function SumulaStep() {
     return false;
   });
 
-  // Handler: preencher exame normal
-  const handleFillNormal = () => {
-    const confirmed = window.confirm(
-      "Isso irá sobrescrever todos os achados selecionados com os valores normais de cada domínio. Deseja continuar?",
-    );
-    if (!confirmed) return;
-
+  // Handler: preencher exame normal (confirmação via diálogo do app)
+  const doFillNormal = () => {
+    setConfirmFill(false);
     const next: PsicoSlice = {};
     for (const domain of DOMAINS) {
       const normals = domain.categories
@@ -98,12 +96,20 @@ export default function SumulaStep() {
           variant="outline"
           size="sm"
           icon={<ClipboardCheck className="h-4 w-4" />}
-          onClick={handleFillNormal}
+          onClick={() => setConfirmFill(true)}
         >
           Preencher Exame Normal
         </Button>
       }
     >
+      <ConfirmDialog
+        open={confirmFill}
+        onClose={() => setConfirmFill(false)}
+        onConfirm={doFillNormal}
+        title="Preencher Exame Normal"
+        message="Isso irá sobrescrever todos os achados selecionados com os valores normais de cada domínio. Deseja continuar?"
+        confirmLabel="Preencher"
+      />
       {/* ---------------------------------------------------------------- */}
       {/* Barra de busca                                                   */}
       {/* ---------------------------------------------------------------- */}

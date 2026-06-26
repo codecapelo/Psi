@@ -61,6 +61,26 @@ interface PtsShape {
 // buildContext — monta o mapa de placeholders a partir do exame
 // --------------------------------------------------------------------------
 
+/** dd/mm/yyyy a partir de uma data yyyy-mm-dd, sem deslocamento de fuso. */
+function formatNascimento(s?: string): string {
+  if (!s) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+}
+
+/** Idade (anos) a partir da data de nascimento yyyy-mm-dd. */
+function calcIdade(nascimento?: string): string {
+  const m = nascimento ? /^(\d{4})-(\d{2})-(\d{2})/.exec(nascimento) : null;
+  if (!m) return "";
+  const nasc = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(nasc.getTime())) return "";
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const mes = hoje.getMonth() - nasc.getMonth();
+  if (mes < 0 || (mes === 0 && hoje.getDate() < nasc.getDate())) idade--;
+  return idade >= 0 && idade < 200 ? String(idade) : "";
+}
+
 function buildContext(
   exam: ReturnType<typeof useExam>["exam"],
   data: ReturnType<typeof useExam>["data"],
@@ -70,6 +90,7 @@ function buildContext(
   const anamnese = (data[SLICE.anamnese] as AnamneseShape | undefined) ?? {};
   const diagnostico = (data[SLICE.diagnostico] as DiagnosticoShape | undefined) ?? {};
   const pts = (data[SLICE.pts] as PtsShape | undefined) ?? {};
+  const det = exam?.patient?.details ?? {};
 
   const hoje = new Date().toISOString();
 
@@ -87,6 +108,20 @@ function buildContext(
     conduta: pts.orientacoes ?? "____",
     medico: medico || "____",
     crm: crm || "____",
+    // Dados cadastrais do paciente (preenchem documentos automaticamente).
+    nascimento: formatNascimento(det.nascimento) || "____",
+    idade: calcIdade(det.nascimento) || "____",
+    sexo: det.sexo || "____",
+    cpf: det.cpf || "____",
+    rg: det.rg || "____",
+    nomeMae: det.nomeMae || "____",
+    nacionalidade: det.nacionalidade || "____",
+    naturalidade: det.naturalidade || "____",
+    estadoCivil: det.estadoCivil || "____",
+    profissao: det.profissao || "____",
+    escolaridade: det.escolaridade || "____",
+    endereco: det.endereco || "____",
+    telefone: det.telefone || "____",
   };
 }
 
@@ -494,7 +529,9 @@ export default function LaudosStep() {
             hint={
               "Placeholders disponíveis: {{paciente}}, {{idExterno}}, {{data}}, {{contexto}}, " +
               "{{queixa}}, {{hda}}, {{diagnostico}}, {{nosologico}}, {{cid}}, " +
-              "{{conduta}}, {{medico}}, {{crm}}"
+              "{{conduta}}, {{medico}}, {{crm}} · Cadastro: {{nascimento}}, {{idade}}, " +
+              "{{sexo}}, {{cpf}}, {{rg}}, {{nomeMae}}, {{nacionalidade}}, {{naturalidade}}, " +
+              "{{estadoCivil}}, {{profissao}}, {{escolaridade}}, {{endereco}}, {{telefone}}"
             }
             required
           >
