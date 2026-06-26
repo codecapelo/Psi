@@ -7,6 +7,12 @@ import { useExamSlice } from "@/context/ExamContext";
 import { useToast } from "@/context/ToastContext";
 import { SLICE } from "@/modules/sliceKeys";
 import { DOMAINS } from "@/modules/psicopatologia/domains";
+import apiClient from "@/lib/api";
+import {
+  buildSuggestRequest,
+  parseSuggestions,
+  type SuggestedScales,
+} from "@/modules/escalas/suggest";
 
 // --------------------------------------------------------------------------
 // Modelo de dados da Anamnese (fatia data.anamnese)
@@ -253,6 +259,45 @@ const DEFAULTS: AnamneseSlice = {
   examePsiquicoSintese: "",
 };
 
+/** Converte a lista bruta da IA em linhas válidas da tabela de substâncias. */
+function parseSubstanceRows(raw: unknown): SubstanceRow[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((r) => {
+      const o = (r ?? {}) as Record<string, unknown>;
+      return {
+        substancia: String(o.substancia ?? "").trim(),
+        inicio: String(o.inicio ?? "").trim(),
+        via: String(o.via ?? "").trim(),
+        quantidade: String(o.quantidade ?? "").trim(),
+        frequencia: String(o.frequencia ?? "").trim(),
+        ultimoUso: String(o.ultimoUso ?? "").trim(),
+        padrao: String(o.padrao ?? "").trim(),
+      };
+    })
+    .filter((r) => r.substancia);
+}
+
+/**
+ * Calcula os campos de uso de substâncias a preencher a partir da resposta da
+ * IA, respeitando o estado atual: só preenche tabela/droga/critérios vazios —
+ * nunca sobrescreve o que o profissional já registrou.
+ */
+function substanceUpdates(
+  parsed: Record<string, unknown>,
+  latest: AnamneseSlice,
+): { updates: Partial<AnamneseSlice>; rowCount: number } {
+  const updates: Partial<AnamneseSlice> = {};
+  const rows = parseSubstanceRows(parsed.substancias);
+  const hasSubs = (latest.substancias ?? []).some((r) => r.substancia.trim());
+  if (rows.length && !hasSubs) updates.substancias = rows;
+  const droga = String(parsed.drogaEscolha ?? "").trim();
+  if (droga && !(latest.drogaEscolha || "").trim()) updates.drogaEscolha = droga;
+  const crit = String(parsed.criteriosTUS ?? "").trim();
+  if (crit && !(latest.criteriosTUS || "").trim()) updates.criteriosTUS = crit;
+  return { updates, rowCount: updates.substancias?.length ?? 0 };
+}
+
 const CONTEXTOS = [
   "Consultório Particular",
   "Ambulatório",
@@ -318,7 +363,13 @@ const ORGANIZE_SYSTEM =
   "NÃO marque um achado 'normal' a menos que o material afirme explicitamente normalidade naquele domínio.\n" +
   "Domínios e rótulos válidos:\n" +
   EEM_CATALOG +
-  '\n\nResponda SOMENTE com um objeto JSON contendo as chaves de texto acima e a chave "eem".';
+  "\n\nHISTÓRIA DE USO DE SUBSTÂNCIAS: se o material mencionar uso de álcool, tabaco ou outras drogas, " +
+  'devolva também a chave "substancias" (lista de objetos com as chaves substancia, inicio, via, quantidade, ' +
+  'frequencia, ultimoUso, padrao), a chave "drogaEscolha" (substância de maior impacto) e a chave ' +
+  '"criteriosTUS" (gravidade DSM-5-TR/CID-11: leve/moderado/grave; tolerância, abstinência, fissura). ' +
+  "Use só o que estiver no material; campos sem informação = string vazia; se não houver uso de " +
+  'substâncias, devolva "substancias" como lista vazia.' +
+  '\n\nResponda SOMENTE com um objeto JSON contendo as chaves de texto acima, a chave "eem" e as chaves de uso de substâncias.';
 
 /**
  * Campo de texto longo com botão de transcrição opcional.
@@ -364,8 +415,28 @@ export default function AnamneseStep() {
     SLICE.psicopatologia,
     {},
   );
+  const [, patchSugeridas] = useExamSlice<SuggestedScales>(SLICE.escalasSugeridas, {
+    ids: [],
+  });
   const { toast } = useToast();
   const { complete, loading: organizing } = useAi();
+
+  /**
+   * Sugere (em segundo plano) as escalas mais pertinentes ao material e as
+   * destaca na etapa de Escalas. Best-effort: erros são silenciados para não
+   * atrapalhar o fluxo da anamnese.
+   */
+  const suggestScalesFromText = async (material: string) => {
+    if (!material.trim()) return;
+    try {
+      const res = await apiClient.ai.complete(buildSuggestRequest(material));
+      const { ids, reasons } = parseSuggestions(res.text);
+      // Reflete o material atual (limpa destaques antigos quando nada se aplica).
+      patchSugeridas({ ids, reasons, at: new Date().toISOString() });
+    } catch {
+      /* sugestão é best-effort */
+    }
+  };
 
   /**
    * Envia a transcrição + anotações para a IA e distribui o resultado nos
@@ -379,6 +450,9 @@ export default function AnamneseStep() {
       toast("Grave ou cole a transcrição da consulta antes de organizar.", "error");
       return;
     }
+
+    // Em paralelo, destaca as escalas mais pertinentes ao material clínico.
+    void suggestScalesFromText(`${transcricao}\n${notas}`);
 
     const text = await complete({
       task: "organize",
@@ -448,8 +522,14 @@ export default function AnamneseStep() {
       findingsMarked += valid.length;
     }
 
+    // ---- História de uso de substâncias ----------------------------------
+    // Mesma resposta da IA: preenche a tabela e os campos do TUS, só quando
+    // ainda estiverem vazios (nunca sobrescreve o que o profissional registrou).
+    const { updates: subUpdates, rowCount: subRows } = substanceUpdates(parsed, latest);
+    const subFilled = Object.keys(subUpdates).length > 0;
+
     const preserved = skipped + domainsPreserved;
-    if (filled === 0 && domainsMarked === 0) {
+    if (filled === 0 && domainsMarked === 0 && !subFilled) {
       toast(
         preserved > 0
           ? "Os campos já têm conteúdo — nada foi sobrescrito."
@@ -461,11 +541,14 @@ export default function AnamneseStep() {
 
     if (filled > 0) patch(updates as Partial<AnamneseSlice>);
     if (domainsMarked > 0) patchPsico(psicoUpdates);
+    if (subFilled) patch(subUpdates);
 
     const parts: string[] = [];
     if (filled > 0) parts.push(`${filled} campo(s) preenchido(s)`);
     if (findingsMarked > 0)
       parts.push(`${findingsMarked} achado(s) do exame psíquico em ${domainsMarked} domínio(s)`);
+    if (subRows > 0) parts.push(`${subRows} substância(s)`);
+    else if (subFilled) parts.push("uso de substâncias");
     toast(
       `${parts.join(" e ")}${preserved ? `, ${preserved} preservado(s)` : ""}. Revise antes de salvar.`,
       "success",
@@ -482,7 +565,12 @@ export default function AnamneseStep() {
 
   /** Extrai a tabela de uso de substâncias da transcrição/notas via IA. */
   const extractSubstances = async () => {
-    const base = `${a.transcricaoBruta || ""}\n${a.usoSubstanciasNotas || ""}`.trim();
+    // Usa todo o material disponível: transcrição, anotações do profissional e
+    // observações do uso de substâncias (o que estiver preenchido).
+    const base = [a.transcricaoBruta, a.anotacoes, a.usoSubstanciasNotas]
+      .map((s) => (s || "").trim())
+      .filter(Boolean)
+      .join("\n");
     if (!base) {
       toast("Grave/cole a transcrição ou as notas de uso antes de extrair.", "error");
       return;
@@ -507,7 +595,7 @@ export default function AnamneseStep() {
     });
     if (text == null) return;
 
-    let parsed: { substancias?: unknown; drogaEscolha?: unknown; criteriosTUS?: unknown };
+    let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(text);
     } catch {
@@ -515,31 +603,10 @@ export default function AnamneseStep() {
       return;
     }
 
-    const rawList = Array.isArray(parsed.substancias) ? parsed.substancias : [];
-    const rows: SubstanceRow[] = rawList
-      .map((r) => {
-        const o = (r ?? {}) as Record<string, unknown>;
-        return {
-          substancia: String(o.substancia ?? "").trim(),
-          inicio: String(o.inicio ?? "").trim(),
-          via: String(o.via ?? "").trim(),
-          quantidade: String(o.quantidade ?? "").trim(),
-          frequencia: String(o.frequencia ?? "").trim(),
-          ultimoUso: String(o.ultimoUso ?? "").trim(),
-          padrao: String(o.padrao ?? "").trim(),
-        };
-      })
-      .filter((r) => r.substancia);
-
     // Estado mais recente (preserva edições feitas durante a chamada da IA).
     const latest = getLatest();
     const hasSubs = (latest.substancias ?? []).some((r) => r.substancia.trim());
-    const updates: Partial<AnamneseSlice> = {};
-    if (rows.length && !hasSubs) updates.substancias = rows;
-    const droga = String(parsed.drogaEscolha ?? "").trim();
-    if (droga && !latest.drogaEscolha.trim()) updates.drogaEscolha = droga;
-    const crit = String(parsed.criteriosTUS ?? "").trim();
-    if (crit && !latest.criteriosTUS.trim()) updates.criteriosTUS = crit;
+    const { updates } = substanceUpdates(parsed, latest);
 
     if (Object.keys(updates).length === 0) {
       toast(

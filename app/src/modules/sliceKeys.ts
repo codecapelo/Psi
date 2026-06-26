@@ -12,6 +12,8 @@ export const SLICE = {
   sumula: "sumula",
   /** Objeto: { [scaleId]: { answers: Record<string, number>; ... } } */
   escalas: "escalas",
+  /** Escalas sugeridas pela IA a partir da transcrição/anotações: { ids, reasons } */
+  escalasSugeridas: "escalasSugeridas",
   diagnostico: "diagnostico",
   pts: "pts",
   laudos: "laudos",
