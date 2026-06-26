@@ -241,14 +241,16 @@ function StartExamModal({
     enabled: !!patient,
   });
 
-  // Internação aberta = episódio internação (com admissão) ainda em status
-  // "aberto". Como o episódio só fecha ao ASSINAR a alta, um rascunho de alta
-  // não assinado NÃO conta como encerrado — a internação segue aberta.
+  // Internação aberta = episódio internação em status "aberto". Espelha a
+  // INVARIANTE do servidor (uma internação aberta por paciente, checada só por
+  // tipo+status) — NÃO exigimos uma admissão aqui. Se a admissão foi excluída
+  // (internação "fantasma") ou em dados antigos, ainda assim a tratamos como
+  // aberta: oferecer "Nova internação" tomaria 409; em vez disso o clínico
+  // continua/encerra a existente por este fluxo (ou a descarta na cronologia).
+  // Obs.: como o episódio só fecha ao ASSINAR a alta, um rascunho de alta não
+  // assinado NÃO conta como encerrado — a internação segue aberta.
   const internacaoAberta = episodesQ.data?.find(
-    (ep) =>
-      ep.tipo === "internacao" &&
-      ep.status === "aberto" &&
-      ep.exams.some((e) => e.tipo === "admissao"),
+    (ep) => ep.tipo === "internacao" && ep.status === "aberto",
   );
   // Rascunho de alta já iniciado (não assinado): oferecemos continuá-lo em vez
   // de criar outra alta (que violaria uq_exams_episode_alta → 409).
