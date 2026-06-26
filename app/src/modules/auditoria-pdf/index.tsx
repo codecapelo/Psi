@@ -309,7 +309,7 @@ export default function AuditoriaPdfStep() {
               }
             }}
           />
-          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Ctrl+Enter para enviar.</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Ctrl+Enter para enviar.</p>
 
           <div className="mt-3">
             <Button

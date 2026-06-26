@@ -199,7 +199,7 @@ export default function EscalasStep() {
 
           {Object.entries(byCategory).map(([cat, scales]) => (
             <div key={cat}>
-              <h3 className="mb-2.5 text-sm font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <h3 className="mb-2.5 text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 {cat}
               </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

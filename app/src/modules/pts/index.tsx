@@ -167,9 +167,9 @@ function BlocoAtividades({
         <>
           {/* Cabeçalhos das colunas */}
           <div className="mb-1.5 hidden sm:grid sm:grid-cols-3 gap-2 pl-8 pr-9">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Ação</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Responsável</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Prazo</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Ação</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Responsável</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Prazo</span>
           </div>
           {lista.map((ativ, idx) => (
             <AtividadeLinha

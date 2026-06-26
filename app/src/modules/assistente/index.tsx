@@ -300,7 +300,7 @@ export default function AssistenteStep() {
                   </div>
                   <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                     <Spinner className="h-4 w-4 text-violet-500" />
-                    <span className="text-sm text-slate-400 dark:text-slate-500">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
                       Analisando…
                     </span>
                   </div>

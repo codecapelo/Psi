@@ -61,7 +61,7 @@ export function makeDomainStep(domainId: string) {
           {domain.categories.map((cat, ci) => (
             <div key={ci} className="py-4 first:pt-0 last:pb-0">
               {cat.name && (
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                   {cat.name}
                 </h4>
               )}

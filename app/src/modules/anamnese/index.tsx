@@ -801,7 +801,7 @@ export default function AnamneseStep() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1040px] border-collapse text-sm">
               <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                   <th className="pb-2 pr-2">Substância</th>
                   <th className="pb-2 pr-2">Início</th>
                   <th className="pb-2 pr-2">Via</th>

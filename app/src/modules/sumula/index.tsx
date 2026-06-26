@@ -135,9 +135,9 @@ export default function SumulaStep() {
       </Card>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Súmula semiológica: um card por domínio                          */}
+      {/* Súmula semiológica: achados compactados                          */}
       {/* ---------------------------------------------------------------- */}
-      <div className="mb-4 space-y-3">
+      <div className="mb-4">
         {visibleDomains.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/40 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-900/30">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
@@ -148,45 +148,58 @@ export default function SumulaStep() {
             </p>
           </div>
         ) : (
-          visibleDomains.map((domain) => {
-            const state = psico[domain.id];
-            const selected = state?.selected ?? [];
-            const notes = state?.notes ?? "";
-            const hasData = selected.length > 0 || !!notes;
+          <Card>
+            <dl className="divide-y divide-slate-100 dark:divide-slate-800">
+              {visibleDomains.map((domain) => {
+                const state = psico[domain.id];
+                const selected = state?.selected ?? [];
+                const notes = state?.notes ?? "";
+                const hasData = selected.length > 0 || !!notes;
 
-            return (
-              <Card key={domain.id}>
-                <CardHeader
-                  title={domain.title}
-                  subtitle={domain.description}
-                />
-                <div className="px-5 py-3">
-                  {hasData ? (
-                    <>
-                      {selected.length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-1.5">
-                          {selected.map((lbl) => (
-                            <Badge key={lbl} color="brand">
-                              {lbl}
-                            </Badge>
-                          ))}
-                        </div>
+                return (
+                  <div
+                    key={domain.id}
+                    className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4"
+                  >
+                    <dt
+                      className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 sm:w-44"
+                      title={domain.description}
+                    >
+                      {domain.shortTitle || domain.title}
+                    </dt>
+                    <dd className="min-w-0 flex-1">
+                      {hasData ? (
+                        <>
+                          {selected.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {selected.map((lbl) => (
+                                <Badge key={lbl} color="brand">
+                                  {lbl}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          {notes && (
+                            <p
+                              className={`text-sm text-slate-600 dark:text-slate-300 ${
+                                selected.length ? "mt-1.5" : ""
+                              }`}
+                            >
+                              {notes}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs italic text-slate-500 dark:text-slate-400">
+                          sem registro
+                        </span>
                       )}
-                      {notes && (
-                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                          {notes}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-0.5 text-xs italic text-slate-400 ring-1 ring-inset ring-slate-200 dark:bg-slate-800/50 dark:text-slate-500 dark:ring-slate-700">
-                      sem registro
-                    </span>
-                  )}
-                </div>
-              </Card>
-            );
-          })
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </Card>
         )}
       </div>
 

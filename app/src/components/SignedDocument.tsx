@@ -146,7 +146,7 @@ function DocField({ label, value }: { label: string; value?: string | null }) {
   if (!txt(value)) return null;
   return (
     <div className="break-inside-avoid">
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+      <dt className="text-xs font-semibold text-slate-700 dark:text-slate-300">
         {label}
       </dt>
       <dd className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
@@ -198,6 +198,50 @@ function Chips({ items }: { items: string[] }) {
         </span>
       ))}
     </div>
+  );
+}
+
+/**
+ * Achados por domínio semiológico em linhas compactas "rótulo → valores".
+ *
+ * O rótulo ocupa uma coluna estreita à esquerda e os chips preenchem o espaço
+ * à direita, na mesma linha. Substitui o empilhamento "rótulo sozinho acima de
+ * um único chip", que deixava a lista alta e cheia de espaço vazio. Com os
+ * rótulos alinhados numa coluna, o exame fica mais fácil de percorrer.
+ *
+ * Compartilhado pelo Exame Psicopatológico (admissão/consulta, com observações)
+ * e pelo Exame do Estado Mental da evolução (sem observações).
+ */
+function DomainFindings({
+  rows,
+}: {
+  rows: { id: string; label: string; items: string[]; notes?: string }[];
+}) {
+  return (
+    <dl className="divide-y divide-slate-100 dark:divide-slate-800">
+      {rows.map((r) => (
+        <div
+          key={r.id}
+          className="flex flex-col gap-1 break-inside-avoid py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-baseline sm:gap-4"
+        >
+          <dt className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 sm:w-44">
+            {r.label}
+          </dt>
+          <dd className="min-w-0 flex-1">
+            <Chips items={r.items} />
+            {r.notes && (
+              <p
+                className={`whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200 ${
+                  r.items.length ? "mt-1.5" : ""
+                }`}
+              >
+                {r.notes}
+              </p>
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -487,21 +531,14 @@ function ClinicalBody({ data }: { data: ExamData }) {
   if (psicoDomains.length) {
     sections.push(
       <DocSection key="psico" icon={ClipboardList} title="Exame Psicopatológico">
-        <div className="space-y-4">
-          {psicoDomains.map(({ dom, sel, notes }) => (
-            <div key={dom.id} className="break-inside-avoid">
-              <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                {dom.shortTitle || dom.title}
-              </h3>
-              <Chips items={sel} />
-              {notes && (
-                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                  {notes}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
+        <DomainFindings
+          rows={psicoDomains.map(({ dom, sel, notes }) => ({
+            id: dom.id,
+            label: dom.shortTitle || dom.title,
+            items: sel,
+            notes,
+          }))}
+        />
       </DocSection>,
     );
   }
@@ -606,7 +643,7 @@ function ClinicalBody({ data }: { data: ExamData }) {
         <DocField label="Análise de Interações" value={p.interacoes} />
         {ativBlocks.map((b) => (
           <div key={b.label} className="break-inside-avoid">
-            <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            <h3 className="mb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
               Atividades — {b.label}
             </h3>
             <ActivitiesTable rows={b.rows} />
@@ -635,7 +672,7 @@ function SubstancesTable({ rows }: { rows: SubstanceRow[] }) {
   ];
   return (
     <div className="break-inside-avoid">
-      <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+      <h3 className="mb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
         Uso de Substâncias
       </h3>
       <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
@@ -728,16 +765,13 @@ function EvolucaoBody({ data }: { data: ExamData }) {
       )}
       {eemDomains.length > 0 && (
         <DocSection icon={ClipboardList} title="Exame do Estado Mental">
-          <div className="space-y-4">
-            {eemDomains.map(({ dom, sel }) => (
-              <div key={dom.id} className="break-inside-avoid">
-                <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  {dom.shortTitle || dom.title}
-                </h3>
-                <Chips items={sel} />
-              </div>
-            ))}
-          </div>
+          <DomainFindings
+            rows={eemDomains.map(({ dom, sel }) => ({
+              id: dom.id,
+              label: dom.shortTitle || dom.title,
+              items: sel,
+            }))}
+          />
         </DocSection>
       )}
     </>

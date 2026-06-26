@@ -190,7 +190,7 @@ export default function AuditLogPage() {
 
       {/* Rodapé informativo */}
       {!isLoading && !isError && entries.length > 0 && (
-        <p className="mt-3 text-right text-xs tabular-nums text-slate-400 dark:text-slate-500">
+        <p className="mt-3 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
           {entries.length} registro{entries.length !== 1 ? "s" : ""}
         </p>
       )}
