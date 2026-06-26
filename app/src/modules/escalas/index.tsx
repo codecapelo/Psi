@@ -50,6 +50,10 @@ export default function EscalasStep() {
   /** Recalcula as escalas sugeridas a partir do material clínico atual. */
   const runSuggest = async () => {
     if (!material.trim()) {
+      // Sem material: limpa destaques antigos para não parecerem atuais.
+      if ((sugeridas.ids ?? []).length) {
+        patchSugeridas({ ids: [], reasons: {}, at: new Date().toISOString() });
+      }
       toast(
         "Adicione a transcrição ou as anotações na Anamnese para sugerir escalas.",
         "error",
