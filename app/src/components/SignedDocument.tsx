@@ -10,7 +10,6 @@
 // É puramente de apresentação: lê os dados já gravados, não edita nada.
 // ==========================================================================
 
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -31,13 +30,12 @@ import {
   User,
 } from "lucide-react";
 import { Badge } from "@/components/ui";
-import apiClient from "@/lib/api";
+import { EpisodeTimeline, useEpisodeTrajetoria } from "@/components/EpisodeTimeline";
 import { formatDate, ENCOUNTER_TIPO_LABEL as TIPO_LABEL } from "@/lib/utils";
-import type { Exam, ExamData, ExamWithPatient } from "@/lib/types";
+import type { ExamData, ExamWithPatient } from "@/lib/types";
 import { DOMAINS } from "@/modules/psicopatologia/domains";
 import { getScale } from "@/modules/escalas/registry";
 import { SEVERITY_COLOR, type ScaleResult } from "@/modules/escalas/types";
-import { describeExam } from "@/modules/alta";
 
 // --------------------------------------------------------------------------
 // Formas parciais das fatias que renderizamos (espelham os módulos do wizard).
@@ -751,15 +749,7 @@ function EvolucaoBody({ data }: { data: ExamData }) {
 // --------------------------------------------------------------------------
 function AltaBody({ exam, data }: { exam: ExamWithPatient; data: ExamData }) {
   const alta = (data.alta ?? {}) as AltaShape;
-  const episodesQ = useQuery({
-    queryKey: ["episodes", exam.patientId],
-    queryFn: () => apiClient.episodes.listByPatient(exam.patientId),
-    enabled: !!exam.patientId && !!exam.episodeId,
-  });
-  const episode = episodesQ.data?.find((ep) => ep.id === exam.episodeId);
-  const trajetoria = (episode?.exams ?? [])
-    .filter((ex) => ex.tipo !== "alta")
-    .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+  const { trajetoria } = useEpisodeTrajetoria(exam.patientId, exam.episodeId);
 
   const hasResumo = any(
     alta.resumo, alta.diagnosticos, alta.conduta, alta.encaminhamentos, alta.prognostico,
@@ -769,32 +759,7 @@ function AltaBody({ exam, data }: { exam: ExamWithPatient; data: ExamData }) {
     <>
       {trajetoria.length > 0 && (
         <DocSection icon={CalendarClock} title="Trajetória do Episódio">
-          <ol className="relative space-y-4 border-l-2 border-accent-200 pl-6 dark:border-accent-900/40">
-            {trajetoria.map((ex: Exam) => {
-              const { titulo, detalhe } = describeExam(ex);
-              const NodeIcon =
-                ex.tipo === "admissao" ? DoorOpen : ex.tipo === "evolucao" ? Activity : FileText;
-              return (
-                <li key={ex.id} className="relative break-inside-avoid">
-                  <span className="absolute -left-[2.1rem] top-0 flex h-6 w-6 items-center justify-center rounded-full bg-accent-50 text-accent-600 ring-2 ring-white dark:bg-accent-900/30 dark:text-accent-300 dark:ring-slate-900">
-                    <NodeIcon className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                      {titulo}
-                    </span>
-                    <span className="text-xs tabular-nums text-slate-400">
-                      {formatDate(ex.createdAt, true)}
-                    </span>
-                    {ex.lockedAt && <Badge color="green">assinada</Badge>}
-                  </div>
-                  {detalhe && (
-                    <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{detalhe}</p>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
+          <EpisodeTimeline exams={trajetoria} variant="document" />
         </DocSection>
       )}
 

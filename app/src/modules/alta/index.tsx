@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { PenLine, Stethoscope, DoorOpen, Activity, FileText } from "lucide-react";
+import { PenLine, Stethoscope } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
-import { Card, CardHeader, Field, Textarea, Button, Badge, Spinner } from "@/components/ui";
+import { Card, CardHeader, Field, Textarea, Button, Spinner } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AiAssistButton, AiDisclaimer } from "@/components/ai";
+import {
+  EpisodeTimeline,
+  useEpisodeTrajetoria,
+  describeExam,
+} from "@/components/EpisodeTimeline";
 import { useExam, useExamSlice } from "@/context/ExamContext";
 import { useToast } from "@/context/ToastContext";
-import apiClient from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import type { Exam } from "@/lib/types";
 
@@ -35,21 +38,6 @@ interface EvolucaoShape {
   o?: string;
   a?: string;
   p?: string;
-}
-
-/** Extrai uma linha de trajetória legível de um atendimento do episódio. */
-export function describeExam(ex: Exam): { titulo: string; detalhe: string } {
-  const data = ex.data as Record<string, unknown>;
-  if (ex.tipo === "admissao" || ex.tipo === "consulta") {
-    const diag = (data.diagnostico ?? {}) as Record<string, string>;
-    const detalhe = [diag.sindromico, diag.nosologico].filter(Boolean).join(" — ");
-    return { titulo: ex.tipo === "admissao" ? "Admissão" : "Consulta", detalhe };
-  }
-  if (ex.tipo === "evolucao") {
-    const ev = (data.evolucao ?? {}) as EvolucaoShape;
-    return { titulo: `Evolução ${ex.seq ?? ""}`.trim(), detalhe: ev.a?.trim() || ev.p?.trim() || "" };
-  }
-  return { titulo: ex.tipo ?? "Atendimento", detalhe: "" };
 }
 
 /** Monta o texto da trajetória completa do episódio para envio à IA. */
@@ -92,18 +80,7 @@ export default function AltaStep() {
 
   const patientId = exam?.patientId;
   const episodeId = exam?.episodeId ?? null;
-
-  const episodesQ = useQuery({
-    queryKey: ["episodes", patientId],
-    queryFn: () => apiClient.episodes.listByPatient(patientId!),
-    enabled: !!patientId,
-  });
-
-  const episode = episodesQ.data?.find((ep) => ep.id === episodeId);
-  // Trajetória = atendimentos do episódio, exceto a própria alta, em ordem.
-  const trajetoria = (episode?.exams ?? [])
-    .filter((ex) => ex.tipo !== "alta")
-    .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+  const { trajetoria, isLoading } = useEpisodeTrajetoria(patientId, episodeId);
 
   const doSign = async () => {
     setConfirmSign(false);
@@ -143,7 +120,7 @@ export default function AltaStep() {
           subtitle="Admissão e evoluções que compõem este episódio de cuidado."
         />
         <div className="p-5">
-          {episodesQ.isLoading ? (
+          {isLoading ? (
             <div className="flex justify-center py-4">
               <Spinner />
             </div>
@@ -152,34 +129,7 @@ export default function AltaStep() {
               Nenhum atendimento anterior encontrado neste episódio.
             </p>
           ) : (
-            <ol className="relative space-y-4 border-l-2 border-accent-200 pl-6 dark:border-accent-900/40">
-              {trajetoria.map((ex) => {
-                const { titulo, detalhe } = describeExam(ex);
-                const NodeIcon =
-                  ex.tipo === "admissao" ? DoorOpen : ex.tipo === "evolucao" ? Activity : FileText;
-                return (
-                  <li key={ex.id} className="relative">
-                    <span className="absolute -left-[2.1rem] top-0 flex h-6 w-6 items-center justify-center rounded-full bg-accent-50 text-accent-600 ring-2 ring-white dark:bg-accent-900/30 dark:text-accent-300 dark:ring-slate-900">
-                      <NodeIcon className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                        {titulo}
-                      </span>
-                      <span className="text-xs tabular-nums text-slate-400">
-                        {formatDate(ex.createdAt, true)}
-                      </span>
-                      {ex.lockedAt && <Badge color="green">assinada</Badge>}
-                    </div>
-                    {detalhe && (
-                      <p className="mt-0.5 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
-                        {detalhe}
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
+            <EpisodeTimeline exams={trajetoria} variant="document" />
           )}
         </div>
       </Card>
