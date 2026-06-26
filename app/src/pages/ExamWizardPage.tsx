@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Navigate, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ArrowLeft, Check, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Check, X, PenLine } from "lucide-react";
 import { ExamProvider, useExam } from "@/context/ExamContext";
 import { getStepsForTipo } from "@/modules/registry";
 import { isStepComplete } from "@/modules/completion";
+import { useToast } from "@/context/ToastContext";
 import type { WizardGroup } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -29,8 +30,10 @@ export default function ExamWizardPage() {
 }
 
 function WizardInner({ stepId }: { stepId?: string }) {
-  const { exam, isLoading, data } = useExam();
+  const { exam, isLoading, data, locked, lock } = useExam();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [signing, setSigning] = useState(false);
 
   const tipo = exam?.tipo ?? "consulta";
   const steps = useMemo(() => getStepsForTipo(tipo), [tipo]);
@@ -78,6 +81,33 @@ function WizardInner({ stepId }: { stepId?: string }) {
   const next = steps[idx + 1];
   const go = (id: string) => navigate(`/exame/${exam.id}/${id}`);
   const finish = () => navigate(`/pacientes/${exam.patientId}/historico`);
+
+  // Evolução e alta assinam pelo botão dedicado dentro da própria etapa; aqui o
+  // "Concluir" só assina os tipos que não têm assinatura própria (admissão e
+  // consulta) — sem isso, ficariam "Em aberto" para sempre na cronologia.
+  const signsOnFinish = !locked && (tipo === "admissao" || tipo === "consulta");
+
+  const finishAndSign = async () => {
+    if (
+      !window.confirm(
+        "Concluir e assinar este atendimento? Após assinar, fica imutável.",
+      )
+    )
+      return;
+    setSigning(true);
+    try {
+      await lock();
+      toast("Atendimento assinado — agora imutável.", "success");
+      finish();
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Erro ao assinar o atendimento.",
+        "error",
+      );
+    } finally {
+      setSigning(false);
+    }
+  };
 
   const Step = step.Component;
 
@@ -184,6 +214,11 @@ function WizardInner({ stepId }: { stepId?: string }) {
             <Button onClick={() => go(next.id)}>
               {next.shortTitle || next.title}
               <ChevronRight className="h-4 w-4" />
+            </Button>
+          ) : signsOnFinish ? (
+            <Button variant="primary" loading={signing} onClick={finishAndSign}>
+              Concluir e assinar
+              <PenLine className="h-4 w-4" />
             </Button>
           ) : (
             <Button variant="primary" onClick={finish}>

@@ -6,6 +6,7 @@ import { TranscribeButton, AiDisclaimer, useAi } from "@/components/ai";
 import { useExamSlice } from "@/context/ExamContext";
 import { useToast } from "@/context/ToastContext";
 import { SLICE } from "@/modules/sliceKeys";
+import { DOMAINS } from "@/modules/psicopatologia/domains";
 
 // --------------------------------------------------------------------------
 // Modelo de dados da Anamnese (fatia data.anamnese)
@@ -285,15 +286,39 @@ const ORGANIZE_FIELDS: { key: StringFieldKey; label: string }[] = [
   { key: "exameFisico", label: "Exame físico: sinais vitais e achados" },
 ];
 
+// Catálogo dos domínios do exame psíquico (EEM) e seus rótulos. A IA só pode
+// marcar achados usando EXATAMENTE estes rótulos (validado na resposta).
+const EEM_CATALOG = DOMAINS.map((d) => {
+  const labels = d.categories.flatMap((c) => c.items).map((i) => i.label);
+  return `- "${d.id}" (${d.title}): ${labels.join(" | ")}`;
+}).join("\n");
+
+// Conjunto de rótulos válidos por domínio — descarta qualquer rótulo inventado.
+const EEM_LABELS: Record<string, Set<string>> = Object.fromEntries(
+  DOMAINS.map((d) => [
+    d.id,
+    new Set(d.categories.flatMap((c) => c.items).map((i) => i.label)),
+  ]),
+);
+
 const ORGANIZE_SYSTEM =
   "Você é um psiquiatra organizando uma anamnese a partir do registro de um atendimento. " +
   "Com base na TRANSCRIÇÃO da consulta e nas ANOTAÇÕES do profissional, distribua as informações nos campos indicados. " +
   "Regras: use APENAS informações presentes no material; nunca invente, deduza ou complete além do que foi dito; " +
   'se não houver informação para um campo, devolva string vazia (""); ' +
   "preserve a fala literal do paciente na queixa principal sempre que possível; " +
-  "escreva de forma técnica, objetiva e em português. " +
-  "Responda SOMENTE com um objeto JSON contendo exatamente estas chaves:\n" +
-  ORGANIZE_FIELDS.map((f) => `- "${f.key}": ${f.label}`).join("\n");
+  "escreva de forma técnica, objetiva e em português.\n\n" +
+  "CAMPOS DA ANAMNESE (chaves de texto):\n" +
+  ORGANIZE_FIELDS.map((f) => `- "${f.key}": ${f.label}`).join("\n") +
+  "\n\nEXAME PSÍQUICO (EEM): se o material descrever achados do estado mental, marque-os nos domínios " +
+  'correspondentes na chave "eem" — um objeto que mapeia o id do domínio para uma lista de rótulos. ' +
+  "Use SOMENTE rótulos que apareçam EXATAMENTE na lista abaixo (copie-os ao pé da letra, com acentos); " +
+  "não crie rótulos novos nem marque achados que não estejam descritos no material; " +
+  "omita do objeto os domínios sem achado descrito; " +
+  "NÃO marque um achado 'normal' a menos que o material afirme explicitamente normalidade naquele domínio.\n" +
+  "Domínios e rótulos válidos:\n" +
+  EEM_CATALOG +
+  '\n\nResponda SOMENTE com um objeto JSON contendo as chaves de texto acima e a chave "eem".';
 
 /**
  * Campo de texto longo com botão de transcrição opcional.
@@ -329,8 +354,16 @@ function TextField({
   );
 }
 
+/** Estado de um domínio do exame psíquico (espelha DomainStep). */
+type PsicoDomainState = { selected: string[]; notes: string };
+type PsicoState = Record<string, PsicoDomainState>;
+
 export default function AnamneseStep() {
   const [a, patch, , getLatest] = useExamSlice<AnamneseSlice>(SLICE.anamnese, DEFAULTS);
+  const [, patchPsico, , getLatestPsico] = useExamSlice<PsicoState>(
+    SLICE.psicopatologia,
+    {},
+  );
   const { toast } = useToast();
   const { complete, loading: organizing } = useAi();
 
@@ -387,9 +420,38 @@ export default function AnamneseStep() {
       filled++;
     }
 
-    if (filled === 0) {
+    // ---- Exame psíquico (EEM): marca os achados nos domínios --------------
+    // Só marca domínios ainda vazios — nunca apaga o que o profissional marcou.
+    const eemRaw = (parsed.eem ?? {}) as Record<string, unknown>;
+    const latestPsico = getLatestPsico();
+    const psicoUpdates: PsicoState = {};
+    let domainsMarked = 0;
+    let findingsMarked = 0;
+    let domainsPreserved = 0;
+    for (const d of DOMAINS) {
+      const raw = Array.isArray(eemRaw[d.id]) ? (eemRaw[d.id] as unknown[]) : [];
+      const valid = [
+        ...new Set(
+          raw.map((l) => String(l).trim()).filter((l) => EEM_LABELS[d.id].has(l)),
+        ),
+      ];
+      if (valid.length === 0) continue;
+      // Domínio com qualquer conteúdo do profissional (achados marcados OU
+      // observação livre) é preservado — não mistura sugestões da IA por cima.
+      const existing = latestPsico[d.id];
+      if ((existing?.selected ?? []).length || (existing?.notes ?? "").trim()) {
+        domainsPreserved++;
+        continue;
+      }
+      psicoUpdates[d.id] = { selected: valid, notes: existing?.notes ?? "" };
+      domainsMarked++;
+      findingsMarked += valid.length;
+    }
+
+    const preserved = skipped + domainsPreserved;
+    if (filled === 0 && domainsMarked === 0) {
       toast(
-        skipped > 0
+        preserved > 0
           ? "Os campos já têm conteúdo — nada foi sobrescrito."
           : "Não encontrei informações para distribuir nos campos.",
         "info",
@@ -397,9 +459,15 @@ export default function AnamneseStep() {
       return;
     }
 
-    patch(updates as Partial<AnamneseSlice>);
+    if (filled > 0) patch(updates as Partial<AnamneseSlice>);
+    if (domainsMarked > 0) patchPsico(psicoUpdates);
+
+    const parts: string[] = [];
+    if (filled > 0) parts.push(`${filled} campo(s) preenchido(s)`);
+    if (findingsMarked > 0)
+      parts.push(`${findingsMarked} achado(s) do exame psíquico em ${domainsMarked} domínio(s)`);
     toast(
-      `${filled} campo(s) preenchido(s)${skipped ? `, ${skipped} preservado(s)` : ""}. Revise antes de salvar.`,
+      `${parts.join(" e ")}${preserved ? `, ${preserved} preservado(s)` : ""}. Revise antes de salvar.`,
       "success",
     );
   };
@@ -513,7 +581,7 @@ export default function AnamneseStep() {
       <Card className="mb-4">
         <CardHeader
           title="Transcrição do Atendimento"
-          subtitle="Grave a consulta uma única vez (ou cole o texto) e deixe a IA distribuir o conteúdo nos campos abaixo. As anotações do profissional ajudam a organização."
+          subtitle="Grave a consulta uma única vez (ou cole o texto) e deixe a IA distribuir o conteúdo nos campos abaixo e marcar os achados do exame psíquico nas abas dos domínios. As anotações do profissional ajudam a organização."
         />
         <div className="p-5">
           <div className="mb-3 flex flex-wrap gap-2">
@@ -568,7 +636,7 @@ export default function AnamneseStep() {
               placeholder="Idade, sexo, ocupação, estado civil…"
             />
           </Field>
-          <AiDisclaimer text="A organização automática preenche apenas campos vazios e nunca sobrescreve o que você já escreveu. Revise tudo — a decisão clínica é sempre do profissional." />
+          <AiDisclaimer text="A organização automática preenche os campos vazios e marca os achados do exame psíquico nas abas dos domínios — apenas onde ainda não há conteúdo; nunca sobrescreve o que você já preencheu. Revise tudo — a decisão clínica é sempre do profissional." />
         </div>
       </Card>
 
