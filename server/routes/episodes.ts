@@ -191,15 +191,23 @@ episodesRouter.post("/episodes/:id/exams", async (req, res, next) => {
       if (ep.status === "encerrado")
         return { status: 409 as const, error: "Episódio encerrado." };
 
-      // Uma alta por episódio — checagem sob lock (constraint é só backstop).
-      if (tipo === "alta") {
-        const { rows: altas } = await client.query<{ id: string }>(
-          `SELECT id FROM exams WHERE episode_id = $1 AND tipo = 'alta' LIMIT 1`,
-          [ep.id],
-        );
-        if (altas.length > 0)
-          return { status: 409 as const, error: "Este episódio já possui uma alta." };
-      }
+      // A alta é o evento FINAL. Uma vez que exista uma alta (rascunho OU
+      // assinada), o episódio não aceita novos atendimentos — nem outra alta,
+      // nem uma evolução (que apareceria depois da alta na cronologia). Checado
+      // sob o lock para barrar abas obsoletas; a constraint uq_exams_episode_alta
+      // é só backstop para alta duplicada.
+      const { rows: altas } = await client.query<{ id: string }>(
+        `SELECT id FROM exams WHERE episode_id = $1 AND tipo = 'alta' LIMIT 1`,
+        [ep.id],
+      );
+      if (altas.length > 0)
+        return {
+          status: 409 as const,
+          error:
+            tipo === "alta"
+              ? "Este episódio já possui uma alta."
+              : "Este episódio já tem uma alta em aberto — assine-a ou descarte-a antes de registrar novos atendimentos.",
+        };
 
       let data: Record<string, unknown> = {};
       if (tipo === "evolucao") {
@@ -252,6 +260,22 @@ episodesRouter.patch("/episodes/:id", async (req, res, next) => {
     if (!parsed.success)
       return res.status(400).json({ error: parsed.error.issues[0]?.message });
     const { status, titulo } = parsed.data;
+    // Reabrir uma internação é proibido: burlaria a regra de "uma internação
+    // aberta por paciente" (deixando duas abertas) e contradiz a alta assinada
+    // que a encerrou. Internação abre só via /internacao e fecha via assinatura
+    // da alta. (Episódios não-internação podem reabrir sem risco à invariante.)
+    if (status === "aberto") {
+      const { rows: ep } = await query<{ tipo: string }>(
+        `SELECT tipo FROM episodes WHERE id = $1`,
+        [req.params.id],
+      );
+      if (ep.length === 0)
+        return res.status(404).json({ error: "Episódio não encontrado." });
+      if (ep[0].tipo === "internacao")
+        return res.status(409).json({
+          error: "Não é possível reabrir uma internação. Abra uma nova, se necessário.",
+        });
+    }
     const { rows } = await query<EpisodeRow>(
       `UPDATE episodes SET
          status = COALESCE($2, status),
