@@ -118,6 +118,17 @@ episodesRouter.post("/patients/:patientId/episodes", async (req, res, next) => {
 episodesRouter.post("/patients/:patientId/internacao", async (req, res, next) => {
   try {
     const result = await withTransaction(async (client) => {
+      // Serializa a criação de internação POR PACIENTE: travar a linha do
+      // paciente (FOR UPDATE) faz dois POSTs concorrentes (duplo clique, retry,
+      // duas abas) esperarem em fila — o 2º já enxerga a internação aberta do 1º
+      // e recebe 409, em vez de ambos inserirem. (Sem isso, a checagem abaixo é
+      // uma corrida.) Patient inexistente → 404.
+      const { rows: pat } = await client.query<{ id: string }>(
+        `SELECT id FROM patients WHERE id = $1 FOR UPDATE`,
+        [req.params.patientId],
+      );
+      if (pat.length === 0) return { notFound: true as const };
+
       const { rows: open } = await client.query<{ id: string }>(
         `SELECT id FROM episodes
          WHERE patient_id = $1 AND tipo = 'internacao' AND status = 'aberto'
@@ -139,6 +150,8 @@ episodesRouter.post("/patients/:patientId/internacao", async (req, res, next) =>
       return { exam: toExam(exRows[0]) };
     });
 
+    if ("notFound" in result)
+      return res.status(404).json({ error: "Paciente não encontrado." });
     if ("conflict" in result) {
       return res.status(409).json({
         error: "Este paciente já tem uma internação aberta. Conclua-a (alta) antes de abrir outra.",
@@ -261,6 +274,10 @@ episodesRouter.patch("/episodes/:id", async (req, res, next) => {
   }
 });
 
+// Sentinela: um atendimento foi assinado em paralelo durante o descarte.
+// Lançá-la faz a transação dar ROLLBACK (preservando o registro assinado).
+class SignedExamRace extends Error {}
+
 // Descarta um episódio inteiro (ex.: internação aberta vazia/equivocada).
 // Bloqueia se houver QUALQUER atendimento assinado — registro assinado é
 // imutável e não pode ser apagado. Caso contrário, remove o episódio e seus
@@ -273,20 +290,31 @@ episodesRouter.delete("/episodes/:id", async (req, res, next) => {
         [req.params.id],
       );
       if (epRows.length === 0) return { status: 404 as const };
-      const { rows: locked } = await client.query<{ n: string }>(
-        `SELECT count(*) AS n FROM exams WHERE episode_id = $1 AND locked_at IS NOT NULL`,
+
+      // Trava TODAS as linhas de atendimento do episódio. POST /exams/:id/lock
+      // também faz FOR UPDATE na linha antes de assinar, então estas não podem
+      // ser assinadas enquanto seguramos o lock — fecha a corrida assinar×descartar.
+      const { rows: exams } = await client.query<{ locked_at: string | null }>(
+        `SELECT locked_at FROM exams WHERE episode_id = $1 FOR UPDATE`,
         [req.params.id],
       );
-      if (Number(locked[0]?.n ?? 0) > 0) return { status: 409 as const };
-      const { rows: cnt } = await client.query<{ n: string }>(
+      if (exams.some((e) => e.locked_at !== null)) return { status: 409 as const };
+
+      // Apaga só os não assinados (ON DELETE SET NULL os tornaria avulsos).
+      await client.query(
+        `DELETE FROM exams WHERE episode_id = $1 AND locked_at IS NULL`,
+        [req.params.id],
+      );
+      // Se ainda restar atendimento, foi inserido E assinado em paralelo (fora do
+      // nosso snapshot travado) — aborta para não apagar/órfãozar o assinado.
+      const { rows: rest } = await client.query<{ n: string }>(
         `SELECT count(*) AS n FROM exams WHERE episode_id = $1`,
         [req.params.id],
       );
-      // ON DELETE SET NULL transformaria os atendimentos em avulsos — por isso
-      // apagamos explicitamente os (não assinados) antes do episódio.
-      await client.query(`DELETE FROM exams WHERE episode_id = $1`, [req.params.id]);
+      if (Number(rest[0]?.n ?? 0) > 0) throw new SignedExamRace();
+
       await client.query(`DELETE FROM episodes WHERE id = $1`, [req.params.id]);
-      return { status: 200 as const, removed: Number(cnt[0]?.n ?? 0) };
+      return { status: 200 as const, removed: exams.length };
     });
 
     if (result.status === 404)
@@ -298,6 +326,10 @@ episodesRouter.delete("/episodes/:id", async (req, res, next) => {
     await audit("DELETE", "episode", req.params.id, `${result.removed} atendimento(s) removido(s)`, req.user?.email);
     res.status(204).end();
   } catch (err) {
+    if (err instanceof SignedExamRace)
+      return res.status(409).json({
+        error: "Um atendimento foi assinado durante o descarte; operação cancelada.",
+      });
     next(err);
   }
 });
