@@ -364,6 +364,9 @@ function EpisodeTrack({
   // Só é possível descartar um episódio sem NENHUM atendimento assinado
   // (registro assinado é imutável). Resolve internações abertas vazias/equívocas.
   const canDiscard = !exams.some((e) => e.lockedAt);
+  // Já existe uma alta (rascunho ou assinada): não oferecemos "Dar alta" de novo
+  // (violaria uq_exams_episode_alta). O episódio só fecha ao assinar a alta.
+  const hasAlta = exams.some((e) => e.tipo === "alta");
 
   return (
     <Card className="p-4">
@@ -421,23 +424,27 @@ function EpisodeTrack({
               >
                 Nova evolução
               </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<LogOut className="h-4 w-4" />}
-                disabled={busy}
-                onClick={onDarAlta}
-              >
-                Dar alta
-              </Button>
+              {!hasAlta && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<LogOut className="h-4 w-4" />}
+                  disabled={busy}
+                  onClick={onDarAlta}
+                >
+                  Dar alta
+                </Button>
+              )}
             </div>
           </>
         )}
       </div>
 
-      {aberto && isInternacao && exams.length > 0 && !exams.some((e) => e.tipo === "alta") && (
+      {aberto && isInternacao && exams.length > 0 && (
         <p className="mt-1 text-xs text-slate-400">
-          Internação aberta — registre evoluções e finalize com a alta.
+          {hasAlta
+            ? "Alta iniciada — abra-a e assine para encerrar a internação."
+            : "Internação aberta — registre evoluções e finalize com a alta."}
         </p>
       )}
     </Card>

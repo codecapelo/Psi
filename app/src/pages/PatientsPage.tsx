@@ -241,14 +241,18 @@ function StartExamModal({
     enabled: !!patient,
   });
 
-  // Internação aberta = episódio internação com admissão e sem alta assinada.
+  // Internação aberta = episódio internação (com admissão) ainda em status
+  // "aberto". Como o episódio só fecha ao ASSINAR a alta, um rascunho de alta
+  // não assinado NÃO conta como encerrado — a internação segue aberta.
   const internacaoAberta = episodesQ.data?.find(
     (ep) =>
       ep.tipo === "internacao" &&
       ep.status === "aberto" &&
-      ep.exams.some((e) => e.tipo === "admissao") &&
-      !ep.exams.some((e) => e.tipo === "alta"),
+      ep.exams.some((e) => e.tipo === "admissao"),
   );
+  // Rascunho de alta já iniciado (não assinado): oferecemos continuá-lo em vez
+  // de criar outra alta (que violaria uq_exams_episode_alta → 409).
+  const altaDraft = internacaoAberta?.exams.find((e) => e.tipo === "alta" && !e.lockedAt);
 
   const start = useMutation({
     mutationFn: (fn: () => Promise<Exam>) => fn(),
@@ -260,6 +264,11 @@ function StartExamModal({
       toast(e instanceof Error ? e.message : "Erro ao iniciar o atendimento.", "error"),
   });
   const busy = start.isPending;
+
+  const openExisting = (examId: string) => {
+    onClose();
+    navigate(`/exame/${examId}`);
+  };
 
   return (
     <Modal open={!!patient} onClose={onClose} title="Iniciar atendimento" size="sm">
@@ -289,15 +298,25 @@ function StartExamModal({
               start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "evolucao"))
             }
           />
-          <ChoiceRow
-            icon={<LogOut className="h-5 w-5" />}
-            title="Dar alta"
-            subtitle="Resumo de alta — encerra a internação ao assinar."
-            disabled={busy}
-            onClick={() =>
-              start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "alta"))
-            }
-          />
+          {altaDraft ? (
+            <ChoiceRow
+              icon={<LogOut className="h-5 w-5" />}
+              title="Continuar alta"
+              subtitle="Retomar o resumo de alta ainda não assinado."
+              disabled={busy}
+              onClick={() => openExisting(altaDraft.id)}
+            />
+          ) : (
+            <ChoiceRow
+              icon={<LogOut className="h-5 w-5" />}
+              title="Dar alta"
+              subtitle="Resumo de alta — encerra a internação ao assinar."
+              disabled={busy}
+              onClick={() =>
+                start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "alta"))
+              }
+            />
+          )}
           <ChoiceRow
             icon={<FileText className="h-5 w-5" />}
             title="Consulta avulsa"
