@@ -431,7 +431,8 @@ export default function AnamneseStep() {
     try {
       const res = await apiClient.ai.complete(buildSuggestRequest(material));
       const { ids, reasons } = parseSuggestions(res.text);
-      if (ids.length) patchSugeridas({ ids, reasons, at: new Date().toISOString() });
+      // Reflete o material atual (limpa destaques antigos quando nada se aplica).
+      patchSugeridas({ ids, reasons, at: new Date().toISOString() });
     } catch {
       /* sugestão é best-effort */
     }

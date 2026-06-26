@@ -59,11 +59,12 @@ export default function EscalasStep() {
     const text = await complete(buildSuggestRequest(material));
     if (text == null) return;
     const { ids, reasons } = parseSuggestions(text);
+    // Sempre reflete o material atual: se nada se aplica, limpa destaques antigos.
+    patchSugeridas({ ids, reasons, at: new Date().toISOString() });
     if (!ids.length) {
       toast("Não identifiquei escalas claramente indicadas no material.", "info");
       return;
     }
-    patchSugeridas({ ids, reasons, at: new Date().toISOString() });
     toast(`${ids.length} escala(s) sugerida(s) destacada(s).`, "success");
   };
 

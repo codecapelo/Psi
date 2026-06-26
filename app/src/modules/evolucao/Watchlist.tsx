@@ -74,8 +74,10 @@ function eemFindings(data: AdmissionData): { domain: string; itens: string[] }[]
 /** Escalas pontuadas na admissão (badge sigla · escore, cor por gravidade). */
 function admissionScales(data: AdmissionData) {
   const escalas = data.escalas ?? {};
+  // Só escalas CONCLUÍDAS entram na linha de base — uma escala parcial tem
+  // score/band sem completedAt e apareceria como um basal válido enganoso.
   return Object.entries(escalas)
-    .filter(([, r]) => r && (r.completedAt || typeof r.score === "number"))
+    .filter(([, r]) => r && r.completedAt)
     .map(([id, r]) => ({
       id,
       acronym: getScale(id)?.acronym ?? id.toUpperCase(),

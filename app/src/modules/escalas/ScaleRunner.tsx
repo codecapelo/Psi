@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Sparkles } from "lucide-react";
 import { Card, Field, Badge, Button } from "@/components/ui";
 import { AiDisclaimer, useAi } from "@/components/ai";
@@ -30,6 +30,10 @@ export function ScaleRunner({
   const { complete: runAi, loading: prefilling } = useAi();
   const { toast } = useToast();
   const answers = result?.answers ?? {};
+  // Espelha as respostas mais recentes para o merge pós-await: se o profissional
+  // marcar/alterar itens enquanto a IA responde, essas edições são preservadas.
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
 
   const score = useMemo(
     () => (def.score ? def.score(answers) : sumScore(answers)),
@@ -48,7 +52,10 @@ export function ScaleRunner({
     const text = await runAi(buildPrefillRequest(def, transcript));
     if (text == null) return;
     const { answers: pre } = parsePrefill(def, text);
-    const added = Object.keys(pre).filter((id) => !(id in answers));
+    // Lê o estado mais recente (não o snapshot do clique): preserva respostas
+    // que o profissional marcou enquanto a IA respondia.
+    const current = answersRef.current;
+    const added = Object.keys(pre).filter((id) => !(id in current));
     if (added.length === 0) {
       toast(
         "Não encontrei no material itens suficientes para pontuar esta escala.",
@@ -56,7 +63,7 @@ export function ScaleRunner({
       );
       return;
     }
-    const merged = { ...pre, ...answers };
+    const merged = { ...pre, ...current };
     const nextScore = def.score ? def.score(merged) : sumScore(merged);
     onChange({
       answers: merged,
