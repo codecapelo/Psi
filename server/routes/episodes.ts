@@ -233,14 +233,10 @@ episodesRouter.post("/episodes/:id/exams", async (req, res, next) => {
     }
     if (!row) return res.status(409).json({ error: "Não foi possível registrar o atendimento. Tente novamente." });
 
-    // Alta encerra o episódio (condicional → dispara no máximo uma vez).
-    if (tipo === "alta") {
-      await query(
-        `UPDATE episodes SET status = 'encerrado', closed_at = now(), updated_at = now()
-         WHERE id = $1 AND status <> 'encerrado'`,
-        [ep.id],
-      );
-    }
+    // NÃO encerramos o episódio aqui: a alta recém-criada é um RASCUNHO ainda
+    // editável/excluível. O episódio só é encerrado quando a alta é ASSINADA
+    // (ver POST /exams/:id/lock). Assim a internação continua "aberta" — e a
+    // guarda de internação única não é enganada por uma alta não assinada.
 
     await audit("CREATE", "exam", row.id, `${tipo} no episódio ${ep.id}`, req.user?.email);
     res.status(201).json(toExam(row));

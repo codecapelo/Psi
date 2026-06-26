@@ -204,6 +204,16 @@ examsRouter.post("/exams/:id/lock", async (req, res, next) => {
          WHERE id = $1 RETURNING *`,
         [row.id, lockedAt, hash],
       );
+      // Assinar a ALTA encerra o episódio (antes ficava aberto até a assinatura,
+      // pois um rascunho de alta não conta como alta efetiva). Mesma transação
+      // do lock → atômico.
+      if (row.tipo === "alta" && row.episode_id) {
+        await client.query(
+          `UPDATE episodes SET status = 'encerrado', closed_at = now(), updated_at = now()
+           WHERE id = $1 AND status <> 'encerrado'`,
+          [row.episode_id],
+        );
+      }
       return { status: 201 as const, exam: toExam(updated[0]), hash };
     });
 
