@@ -19,6 +19,14 @@ export function formatDate(iso?: string | null, withTime = false): string {
   });
 }
 
+/** Rótulos em pt-BR dos tipos de atendimento (camada longitudinal). */
+export const ENCOUNTER_TIPO_LABEL: Record<string, string> = {
+  admissao: "Admissão",
+  evolucao: "Evolução",
+  alta: "Alta",
+  consulta: "Consulta",
+};
+
 /** Gera um UUID v4 (usa crypto nativo). */
 export function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {

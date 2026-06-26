@@ -11,16 +11,9 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EvolucaoWatchlist } from "@/modules/evolucao/Watchlist";
 import { AltaJourney } from "@/modules/alta/Journey";
 import { SignedDocument } from "@/components/SignedDocument";
-import { cn } from "@/lib/utils";
+import { cn, ENCOUNTER_TIPO_LABEL as TIPO_LABEL } from "@/lib/utils";
 
 const GROUP_ORDER: WizardGroup[] = ["Clínico", "Síntese", "Conclusão", "IA"];
-
-const TIPO_LABEL: Record<string, string> = {
-  admissao: "Admissão",
-  evolucao: "Evolução",
-  alta: "Alta",
-  consulta: "Consulta",
-};
 
 export default function ExamWizardPage() {
   const { examId, stepId } = useParams();
@@ -81,7 +74,9 @@ function WizardInner({ stepId }: { stepId?: string }) {
   }
 
   // Assinado/imutável → vista de documento (somente leitura), sem o formulário.
-  if (locked) {
+  // Exceção: a etapa de Laudos gera atestados/relatórios sob demanda (não
+  // persistidos), útil mesmo após a assinatura — segue acessível.
+  if (locked && current?.id !== "laudos") {
     return <SignedDocument exam={exam} />;
   }
 

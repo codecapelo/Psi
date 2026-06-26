@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui";
 import apiClient from "@/lib/api";
-import { formatDate } from "@/lib/utils";
+import { formatDate, ENCOUNTER_TIPO_LABEL as TIPO_LABEL } from "@/lib/utils";
 import type { Exam, ExamData, ExamWithPatient } from "@/lib/types";
 import { DOMAINS } from "@/modules/psicopatologia/domains";
 import { getScale } from "@/modules/escalas/registry";
@@ -124,21 +124,20 @@ interface EvolucaoShape {
   prev?: { sourceTipo?: string; sourceDate?: string } | null;
 }
 
-const TIPO_LABEL: Record<string, string> = {
-  admissao: "Admissão",
-  evolucao: "Evolução",
-  alta: "Alta",
-  consulta: "Consulta",
-};
-
 const txt = (v?: string | null) => (v ?? "").trim();
 const any = (...vals: (string | null | undefined)[]) => vals.some((v) => txt(v));
+/** Garante array a partir de JSON livre (Exam.data) — evita crash em dado legado/malformado. */
+const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
-/** Idade aproximada a partir da data de nascimento (yyyy-mm-dd). */
+/** Idade em anos completos a partir da data de nascimento (yyyy-mm-dd), no fuso local. */
 function ageFrom(nascimento?: string): string {
-  const d = nascimento ? new Date(nascimento) : null;
-  if (!d || Number.isNaN(d.getTime())) return "";
-  const years = Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(nascimento ?? "");
+  if (!m) return "";
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const now = new Date();
+  let years = now.getFullYear() - y;
+  const monthDiff = now.getMonth() + 1 - mo;
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < d)) years--;
   return years >= 0 && years < 150 ? `${years} anos` : "";
 }
 
@@ -209,6 +208,9 @@ function Chips({ items }: { items: string[] }) {
 // --------------------------------------------------------------------------
 export function SignedDocument({ exam }: { exam: ExamWithPatient }) {
   const tipo = exam.tipo ?? "consulta";
+  // Laudos/relatórios (atestados, encaminhamentos…) são gerados sob demanda e
+  // não ficam no Exam.data — seguem acessíveis após a assinatura.
+  const hasLaudos = tipo === "consulta" || tipo === "admissao";
   const data = (exam.data ?? {}) as ExamData;
   const patient = exam.patient;
   const details = patient.details ?? {};
@@ -240,12 +242,20 @@ export function SignedDocument({ exam }: { exam: ExamWithPatient }) {
       return;
     }
     root.classList.remove("dark");
+    // Restauração idempotente com várias salvaguardas: afterprint pode não
+    // disparar (cancelamento, Safari/webview). Sem isso, o tema escuro ficaria
+    // perdido — a manipulação direta da classe não passa pelo ThemeContext.
+    let done = false;
     const restore = () => {
+      if (done) return;
+      done = true;
       root.classList.add("dark");
       window.removeEventListener("afterprint", restore);
     };
     window.addEventListener("afterprint", restore);
     window.print();
+    // Fallback caso afterprint nunca seja emitido.
+    window.setTimeout(restore, 1500);
   };
 
   return (
@@ -262,6 +272,14 @@ export function SignedDocument({ exam }: { exam: ExamWithPatient }) {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:ring-emerald-800/60">
             <Lock className="h-3.5 w-3.5" /> Documento assinado
           </span>
+          {hasLaudos && (
+            <Link
+              to={`/exame/${exam.id}/laudos`}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-transparent px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <FileText className="h-4 w-4" /> Relatórios e Laudos
+            </Link>
+          )}
           <button
             onClick={handlePrint}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-brand-900/15 transition-all hover:bg-brand-700 hover:shadow-md active:translate-y-px"
@@ -357,18 +375,23 @@ export function SignedDocument({ exam }: { exam: ExamWithPatient }) {
           )}
         </div>
 
-        {/* Rodapé — integridade */}
-        {exam.hash && (
+        {/* Rodapé — assinatura/integridade (sempre presente em documento assinado,
+            inclusive na impressão, mesmo que o hash não exista em registros antigos). */}
+        {exam.lockedAt && (
           <footer className="break-inside-avoid border-t border-slate-200 bg-slate-50/60 px-8 py-4 dark:border-slate-800 dark:bg-slate-800/30">
             <div className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400">
               <Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
               <div>
                 <div className="font-medium text-slate-600 dark:text-slate-300">
-                  Documento assinado e imutável — prova de integridade (SHA-256)
+                  Documento assinado e imutável em{" "}
+                  <span className="tabular-nums">{formatDate(exam.lockedAt, true)}</span>
+                  {exam.hash ? " — prova de integridade (SHA-256)" : "."}
                 </div>
-                <div className="mt-0.5 break-all font-mono text-[11px] leading-relaxed text-slate-400">
-                  {exam.hash}
-                </div>
+                {exam.hash && (
+                  <div className="mt-0.5 break-all font-mono text-[11px] leading-relaxed text-slate-400">
+                    {exam.hash}
+                  </div>
+                )}
               </div>
             </div>
           </footer>
@@ -390,12 +413,12 @@ function ClinicalBody({ data }: { data: ExamData }) {
   const d = (data.diagnostico ?? {}) as DiagnosticoShape;
   const p = (data.pts ?? {}) as PtsShape;
 
-  const subs = (a.substancias ?? []).filter((r) =>
+  const subs = asArray<SubstanceRow>(a.substancias).filter((r) =>
     any(r.substancia, r.inicio, r.via, r.quantidade, r.frequencia, r.ultimoUso, r.padrao),
   );
   const psicoDomains = DOMAINS.map((dom) => ({
     dom,
-    sel: (psico[dom.id]?.selected ?? []).filter(Boolean),
+    sel: asArray<string>(psico[dom.id]?.selected).filter(Boolean),
     notes: txt(psico[dom.id]?.notes),
   })).filter((x) => x.sel.length || x.notes);
   const scaleEntries = Object.entries(escalas).filter(([, r]) => r && typeof r.score === "number");
@@ -560,9 +583,9 @@ function ClinicalBody({ data }: { data: ExamData }) {
   // PTS
   const ativ = p.atividades ?? {};
   const ativBlocks: { label: string; rows: Atividade[] }[] = [
-    { label: "Preventivo", rows: (ativ.preventivo ?? []).filter((r) => any(r.acao, r.responsavel, r.prazo)) },
-    { label: "Assistencial", rows: (ativ.assistencial ?? []).filter((r) => any(r.acao, r.responsavel, r.prazo)) },
-    { label: "Gestão do cuidado", rows: (ativ.gestao ?? []).filter((r) => any(r.acao, r.responsavel, r.prazo)) },
+    { label: "Preventivo", rows: asArray<Atividade>(ativ.preventivo).filter((r) => any(r.acao, r.responsavel, r.prazo)) },
+    { label: "Assistencial", rows: asArray<Atividade>(ativ.assistencial).filter((r) => any(r.acao, r.responsavel, r.prazo)) },
+    { label: "Gestão do cuidado", rows: asArray<Atividade>(ativ.gestao).filter((r) => any(r.acao, r.responsavel, r.prazo)) },
   ].filter((b) => b.rows.length);
   if (
     any(
@@ -684,7 +707,7 @@ function EvolucaoBody({ data }: { data: ExamData }) {
   const eem = e.eem ?? {};
   const eemDomains = DOMAINS.map((dom) => ({
     dom,
-    sel: (eem[dom.id] ?? []).filter(Boolean),
+    sel: asArray<string>(eem[dom.id]).filter(Boolean),
   })).filter((x) => x.sel.length);
 
   const soap: { key: "s" | "o" | "a" | "p"; label: string }[] = [
