@@ -8,12 +8,6 @@ import {
   EPISODE_TIPOS,
 } from "../longitudinal.ts";
 
-/** Código de violação de unicidade do Postgres. */
-const PG_UNIQUE_VIOLATION = "23505";
-function pgError(err: unknown): { code?: string; constraint?: string } {
-  return (err ?? {}) as { code?: string; constraint?: string };
-}
-
 export const episodesRouter = Router();
 
 interface EpisodeRow {
@@ -175,6 +169,10 @@ episodesRouter.post("/patients/:patientId/internacao", async (req, res, next) =>
 const addExamSchema = z.object({ tipo: z.enum(ENCOUNTER_TIPOS) });
 
 // Cria um atendimento dentro de um episódio (com semeadura para evolução).
+// Tudo sob FOR UPDATE no episódio: serializa contra o fechamento por assinatura
+// da alta (POST /exams/:id/lock atualiza `episodes`, pegando o mesmo row lock) —
+// sem isso, um insert poderia "escapar" para um episódio recém-encerrado. O lock
+// também torna a alocação de `seq` determinística (dispensa o retry de corrida).
 episodesRouter.post("/episodes/:id/exams", async (req, res, next) => {
   try {
     const parsed = addExamSchema.safeParse(req.body);
@@ -182,64 +180,61 @@ episodesRouter.post("/episodes/:id/exams", async (req, res, next) => {
       return res.status(400).json({ error: parsed.error.issues[0]?.message });
     const { tipo } = parsed.data;
 
-    const { rows: epRows } = await query<EpisodeRow>(
-      `SELECT * FROM episodes WHERE id = $1`,
-      [req.params.id],
-    );
-    if (epRows.length === 0)
-      return res.status(404).json({ error: "Episódio não encontrado." });
-    const ep = epRows[0];
-
-    // Episódio encerrado é imutável — não recebe novos atendimentos.
-    if (ep.status === "encerrado")
-      return res.status(409).json({ error: "Episódio encerrado." });
-
-    let data: Record<string, unknown> = {};
-    if (tipo === "evolucao") {
-      const { rows: srcRows } = await query<ExamRow>(
-        `SELECT * FROM exams
-         WHERE episode_id = $1 AND tipo IN ('evolucao','admissao','consulta')
-         ORDER BY seq DESC NULLS LAST, created_at DESC LIMIT 1`,
-        [ep.id],
+    const result = await withTransaction(async (client) => {
+      const { rows: epRows } = await client.query<EpisodeRow>(
+        `SELECT * FROM episodes WHERE id = $1 FOR UPDATE`,
+        [req.params.id],
       );
-      const src = srcRows[0]
-        ? { tipo: srcRows[0].tipo, data: srcRows[0].data, date: srcRows[0].created_at }
-        : null;
-      data = { evolucao: buildEvolucaoSeed(src) };
-    }
+      if (epRows.length === 0) return { status: 404 as const };
+      const ep = epRows[0];
+      // Re-checado SOB o lock: se a alta foi assinada em paralelo, já encerrou.
+      if (ep.status === "encerrado")
+        return { status: 409 as const, error: "Episódio encerrado." };
 
-    // seq é alocado DENTRO do INSERT (atômico). Uma corrida vira violação de
-    // unicidade (uq_exams_episode_seq) → tentamos de novo. Duplicar a alta
-    // (uq_exams_episode_alta) é erro definitivo → 409.
-    let row: ExamRow | undefined;
-    for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        const { rows } = await query<ExamRow>(
-          `INSERT INTO exams (patient_id, episode_id, tipo, seq, data)
-           SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4::jsonb
-           FROM exams WHERE episode_id = $2
-           RETURNING *`,
-          [ep.patient_id, ep.id, tipo, JSON.stringify(data)],
+      // Uma alta por episódio — checagem sob lock (constraint é só backstop).
+      if (tipo === "alta") {
+        const { rows: altas } = await client.query<{ id: string }>(
+          `SELECT id FROM exams WHERE episode_id = $1 AND tipo = 'alta' LIMIT 1`,
+          [ep.id],
         );
-        row = rows[0];
-        break;
-      } catch (err) {
-        const e = pgError(err);
-        if (e.code === PG_UNIQUE_VIOLATION && e.constraint === "uq_exams_episode_alta")
-          return res.status(409).json({ error: "Este episódio já possui uma alta." });
-        if (e.code === PG_UNIQUE_VIOLATION && attempt < 4) continue; // corrida de seq
-        throw err;
+        if (altas.length > 0)
+          return { status: 409 as const, error: "Este episódio já possui uma alta." };
       }
-    }
-    if (!row) return res.status(409).json({ error: "Não foi possível registrar o atendimento. Tente novamente." });
 
-    // NÃO encerramos o episódio aqui: a alta recém-criada é um RASCUNHO ainda
-    // editável/excluível. O episódio só é encerrado quando a alta é ASSINADA
-    // (ver POST /exams/:id/lock). Assim a internação continua "aberta" — e a
-    // guarda de internação única não é enganada por uma alta não assinada.
+      let data: Record<string, unknown> = {};
+      if (tipo === "evolucao") {
+        const { rows: srcRows } = await client.query<ExamRow>(
+          `SELECT * FROM exams
+           WHERE episode_id = $1 AND tipo IN ('evolucao','admissao','consulta')
+           ORDER BY seq DESC NULLS LAST, created_at DESC LIMIT 1`,
+          [ep.id],
+        );
+        const src = srcRows[0]
+          ? { tipo: srcRows[0].tipo, data: srcRows[0].data, date: srcRows[0].created_at }
+          : null;
+        data = { evolucao: buildEvolucaoSeed(src) };
+      }
 
-    await audit("CREATE", "exam", row.id, `${tipo} no episódio ${ep.id}`, req.user?.email);
-    res.status(201).json(toExam(row));
+      // seq determinístico sob o lock — sem corrida, sem retry.
+      const { rows } = await client.query<ExamRow>(
+        `INSERT INTO exams (patient_id, episode_id, tipo, seq, data)
+         SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4::jsonb
+         FROM exams WHERE episode_id = $2
+         RETURNING *`,
+        [ep.patient_id, ep.id, tipo, JSON.stringify(data)],
+      );
+      // NÃO encerramos o episódio aqui: a alta recém-criada é um RASCUNHO ainda
+      // editável/excluível. O episódio só é encerrado ao ASSINAR a alta.
+      return { status: 201 as const, exam: toExam(rows[0]), episodeId: ep.id };
+    });
+
+    if (result.status === 404)
+      return res.status(404).json({ error: "Episódio não encontrado." });
+    if (result.status === 409)
+      return res.status(409).json({ error: result.error });
+
+    await audit("CREATE", "exam", result.exam.id, `${tipo} no episódio ${result.episodeId}`, req.user?.email);
+    res.status(201).json(result.exam);
   } catch (err) {
     next(err);
   }

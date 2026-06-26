@@ -410,8 +410,10 @@ function EpisodeTrack({
           </Fragment>
         ))}
 
-        {/* Ações da internação aberta */}
-        {aberto && isInternacao && (
+        {/* Ações da internação aberta. Quando já há alta (rascunho/assinada), a
+            internação está em fechamento — não oferecemos novos atendimentos
+            (uma evolução nova apareceria depois da alta na cronologia). */}
+        {aberto && isInternacao && !hasAlta && (
           <>
             {exams.length > 0 && <Connector label="" />}
             <div className="flex w-44 shrink-0 flex-col justify-center gap-2 rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-700">
@@ -424,17 +426,15 @@ function EpisodeTrack({
               >
                 Nova evolução
               </Button>
-              {!hasAlta && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<LogOut className="h-4 w-4" />}
-                  disabled={busy}
-                  onClick={onDarAlta}
-                >
-                  Dar alta
-                </Button>
-              )}
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<LogOut className="h-4 w-4" />}
+                disabled={busy}
+                onClick={onDarAlta}
+              >
+                Dar alta
+              </Button>
             </div>
           </>
         )}

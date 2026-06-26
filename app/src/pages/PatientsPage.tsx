@@ -288,34 +288,40 @@ function StartExamModal({
           <p className="mb-1 text-sm text-amber-700 dark:text-amber-400">
             Este paciente tem uma internação aberta.
           </p>
-          <ChoiceRow
-            icon={<Activity className="h-5 w-5" />}
-            title="Nova evolução"
-            subtitle="Continua a internação em curso."
-            primary
-            disabled={busy}
-            onClick={() =>
-              start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "evolucao"))
-            }
-          />
           {altaDraft ? (
+            // Alta já iniciada: a internação está em fechamento — não oferecemos
+            // nova evolução (apareceria depois da alta na cronologia). Continue a
+            // alta e assine, ou descarte o rascunho pela cronologia.
             <ChoiceRow
               icon={<LogOut className="h-5 w-5" />}
               title="Continuar alta"
-              subtitle="Retomar o resumo de alta ainda não assinado."
+              subtitle="Retomar o resumo de alta ainda não assinado — assine para encerrar."
+              primary
               disabled={busy}
               onClick={() => openExisting(altaDraft.id)}
             />
           ) : (
-            <ChoiceRow
-              icon={<LogOut className="h-5 w-5" />}
-              title="Dar alta"
-              subtitle="Resumo de alta — encerra a internação ao assinar."
-              disabled={busy}
-              onClick={() =>
-                start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "alta"))
-              }
-            />
+            <>
+              <ChoiceRow
+                icon={<Activity className="h-5 w-5" />}
+                title="Nova evolução"
+                subtitle="Continua a internação em curso."
+                primary
+                disabled={busy}
+                onClick={() =>
+                  start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "evolucao"))
+                }
+              />
+              <ChoiceRow
+                icon={<LogOut className="h-5 w-5" />}
+                title="Dar alta"
+                subtitle="Resumo de alta — encerra a internação ao assinar."
+                disabled={busy}
+                onClick={() =>
+                  start.mutate(() => apiClient.episodes.addExam(internacaoAberta.id, "alta"))
+                }
+              />
+            </>
           )}
           <ChoiceRow
             icon={<FileText className="h-5 w-5" />}
