@@ -38,7 +38,7 @@ interface EvolucaoShape {
 }
 
 /** Extrai uma linha de trajetória legível de um atendimento do episódio. */
-function describeExam(ex: Exam): { titulo: string; detalhe: string } {
+export function describeExam(ex: Exam): { titulo: string; detalhe: string } {
   const data = ex.data as Record<string, unknown>;
   if (ex.tipo === "admissao" || ex.tipo === "consulta") {
     const diag = (data.diagnostico ?? {}) as Record<string, string>;

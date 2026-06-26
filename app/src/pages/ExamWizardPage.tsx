@@ -9,6 +9,7 @@ import type { WizardGroup } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EvolucaoWatchlist } from "@/modules/evolucao/Watchlist";
+import { AltaJourney } from "@/modules/alta/Journey";
 import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: WizardGroup[] = ["Clínico", "Síntese", "Conclusão", "IA"];
@@ -203,6 +204,11 @@ function WizardInner({ stepId }: { stepId?: string }) {
         {/* Pontos a reavaliar até a alta — só na evolução, derivado da admissão. */}
         {tipo === "evolucao" && exam.episodeId && (
           <EvolucaoWatchlist patientId={exam.patientId} episodeId={exam.episodeId} />
+        )}
+
+        {/* Caminho do episódio (admissão → evoluções → alta) — só na alta. */}
+        {tipo === "alta" && exam.episodeId && (
+          <AltaJourney patientId={exam.patientId} episodeId={exam.episodeId} />
         )}
       </aside>
 

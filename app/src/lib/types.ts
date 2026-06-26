@@ -108,6 +108,7 @@ export interface EpisodeWithExams extends Episode {
 export type AiTask =
   | "synthesize" // sintetizar texto livre em campos estruturados
   | "organize" // distribuir uma transcrição em múltiplos campos (JSON)
+  | "suggest_scales" // sugerir/pré-pontuar escalas a partir da transcrição (JSON)
   | "suggest_diagnosis"
   | "suggest_differentials"
   | "suggest_pts"
