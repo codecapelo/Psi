@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Moon, Sun, Cpu, Database, Sparkles } from "lucide-react";
+import { Moon, Sun, Cpu, Database, Sparkles, Settings } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 import { Card, CardHeader, Button, Badge } from "@/components/ui";
@@ -13,13 +13,20 @@ export default function SettingsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-        Configurações
-      </h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-        Preferências do aplicativo e status do sistema.
-      </p>
+    <div className="mx-auto max-w-3xl animate-fade-in p-6">
+      <div className="mb-6 flex items-center gap-3">
+        <span className="hidden h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 sm:flex dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+          <Settings className="h-5 w-5" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Configurações
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Preferências do aplicativo e status do sistema.
+          </p>
+        </div>
+      </div>
 
       <Card className="mb-4">
         <CardHeader title="Aparência" />
@@ -76,9 +83,11 @@ function StatusRow({
   ok?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-        {icon}
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+      <span className="flex items-center gap-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-400 ring-1 ring-inset ring-slate-200 dark:bg-slate-900 dark:text-slate-500 dark:ring-slate-700">
+          {icon}
+        </span>
         {label}
       </span>
       <Badge color={ok ? "green" : "red"}>

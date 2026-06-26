@@ -73,16 +73,21 @@ export default function MospPage() {
   const memories = mospQ.data ?? [];
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="mx-auto max-w-4xl animate-fade-in p-6">
       {/* Cabeçalho */}
-      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            MOSP — Memória Operacional SOPsi
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Diretrizes clínicas em Markdown ordenadas por prioridade, injetadas na IA por gatilhos.
-          </p>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="hidden h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 sm:flex dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+            <BookText className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              MOSP — Memória Operacional SOPsi
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Diretrizes clínicas em Markdown ordenadas por prioridade, injetadas na IA por gatilhos.
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 gap-2">
           <Button
@@ -128,8 +133,10 @@ export default function MospPage() {
           <Spinner />
         </div>
       ) : mospQ.isError ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-red-300 px-6 py-14 text-center dark:border-red-700">
-          <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-red-300 bg-red-50/40 px-6 py-14 text-center dark:border-red-700 dark:bg-red-900/10">
+          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-500 dark:bg-red-900/30 dark:text-red-400">
+            <AlertCircle className="h-6 w-6" />
+          </span>
           <p className="font-medium text-slate-700 dark:text-slate-200">
             Não foi possível carregar as memórias
           </p>
@@ -236,23 +243,23 @@ function MemoryCard({
   const html = renderMd(memory.contentMd);
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 transition-all hover:border-slate-300 hover:shadow-card-hover dark:hover:border-slate-700">
       {/* Linha de título + ações */}
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-slate-900 dark:text-slate-100">
+            <span className="text-base font-semibold text-slate-900 dark:text-slate-100">
               {memory.title}
             </span>
             <Badge color="brand">Prioridade {memory.order}</Badge>
           </div>
           {/* Chips de gatilhos */}
           {memory.triggers.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {memory.triggers.map((t) => (
                 <span
                   key={t}
-                  className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
                 >
                   {t}
                 </span>

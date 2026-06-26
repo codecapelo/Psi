@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PenLine, Stethoscope } from "lucide-react";
+import { PenLine, Stethoscope, DoorOpen, Activity, FileText } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea, Button, Badge, Spinner } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -152,17 +152,21 @@ export default function AltaStep() {
               Nenhum atendimento anterior encontrado neste episódio.
             </p>
           ) : (
-            <ol className="relative space-y-3 border-l border-slate-200 pl-5 dark:border-slate-700">
+            <ol className="relative space-y-4 border-l-2 border-accent-200 pl-6 dark:border-accent-900/40">
               {trajetoria.map((ex) => {
                 const { titulo, detalhe } = describeExam(ex);
+                const NodeIcon =
+                  ex.tipo === "admissao" ? DoorOpen : ex.tipo === "evolucao" ? Activity : FileText;
                 return (
                   <li key={ex.id} className="relative">
-                    <span className="absolute -left-[1.45rem] top-1 h-2.5 w-2.5 rounded-full bg-brand-500" />
-                    <div className="flex items-center gap-2">
+                    <span className="absolute -left-[2.1rem] top-0 flex h-6 w-6 items-center justify-center rounded-full bg-accent-50 text-accent-600 ring-2 ring-white dark:bg-accent-900/30 dark:text-accent-300 dark:ring-slate-900">
+                      <NodeIcon className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
                         {titulo}
                       </span>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs tabular-nums text-slate-400">
                         {formatDate(ex.createdAt, true)}
                       </span>
                       {ex.lockedAt && <Badge color="green">assinada</Badge>}
@@ -245,8 +249,8 @@ export default function AltaStep() {
               disabled={locked}
             />
           </Field>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Stethoscope className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800/40 dark:text-slate-400">
+            <Stethoscope className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             O resumo de alta integra os dados do episódio — confira antes de assinar.
           </div>
           {alta.resumo && <AiDisclaimer />}

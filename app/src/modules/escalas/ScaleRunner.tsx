@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ClipboardList } from "lucide-react";
 import { Card, Field, Badge, Button } from "@/components/ui";
 import { AiDisclaimer, useAi } from "@/components/ai";
 import { useToast } from "@/context/ToastContext";
@@ -94,16 +94,21 @@ export function ScaleRunner({
   return (
     <div>
       <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {def.acronym} — {def.name}
-          </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {def.description}
-          </p>
-          {def.reference && (
-            <p className="mt-1 text-xs text-slate-400">Ref.: {def.reference}</p>
-          )}
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 sm:flex dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+            <ClipboardList className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+              {def.acronym} — {def.name}
+            </h3>
+            <p className="mt-0.5 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              {def.description}
+            </p>
+            {def.reference && (
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Ref.: {def.reference}</p>
+            )}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {transcript?.trim() && !complete && (
@@ -130,59 +135,92 @@ export function ScaleRunner({
       )}
       {def.note && <AiDisclaimer text={def.note} />}
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 space-y-3">
         {def.items.map((item, idx) => {
           const opts = item.options ?? def.defaultOptions ?? [];
+          const answered = item.id in answers;
           return (
-            <Card key={item.id} className="p-3">
-              <Field
-                label={`${idx + 1}. ${item.text}`}
-                className="mb-0"
-              >
-                <div className="flex flex-wrap gap-2">
-                  {opts.map((opt) => {
-                    const selected = answers[item.id] === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setAnswer(item.id, opt.value)}
-                        className={
-                          "rounded-md border px-3 py-1.5 text-sm transition-colors " +
-                          (selected
-                            ? "border-brand-500 bg-brand-50 font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
-                            : "border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800")
-                        }
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
+            <Card
+              key={item.id}
+              className={
+                "p-4 transition-colors " +
+                (answered
+                  ? "border-brand-200 bg-brand-50/30 dark:border-brand-900/40 dark:bg-brand-900/10"
+                  : "")
+              }
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className={
+                    "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ring-1 ring-inset transition-colors " +
+                    (answered
+                      ? "bg-brand-100 text-brand-700 ring-brand-200 dark:bg-brand-900/40 dark:text-brand-300 dark:ring-brand-900/50"
+                      : "bg-slate-100 text-slate-500 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700")
+                  }
+                >
+                  {idx + 1}
+                </span>
+                <Field label={item.text} className="mb-0 flex-1">
+                  <div className="flex flex-wrap gap-2">
+                    {opts.map((opt) => {
+                      const selected = answers[item.id] === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setAnswer(item.id, opt.value)}
+                          className={
+                            "rounded-lg border px-3 py-1.5 text-sm transition-all " +
+                            (selected
+                              ? "border-brand-500 bg-brand-50 font-medium text-brand-700 ring-1 ring-inset ring-brand-200 dark:border-brand-500/60 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40"
+                              : "border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800")
+                          }
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </div>
             </Card>
           );
         })}
       </div>
 
-      <Card className="sticky bottom-2 mt-4 flex items-center justify-between gap-4 p-4">
-        <div className="text-sm text-slate-500 dark:text-slate-400">
-          {answeredCount}/{def.items.length} itens respondidos
+      <Card className="sticky bottom-2 mt-4 flex items-center justify-between gap-4 p-4 shadow-pop ring-1 ring-slate-900/5 dark:ring-white/10">
+        <div className="min-w-0">
+          <div className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            {answeredCount}/{def.items.length} itens respondidos
+          </div>
+          <div className="mt-1.5 h-1.5 w-32 max-w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div
+              className="h-full rounded-full bg-brand-500 transition-all dark:bg-brand-400"
+              style={{ width: `${def.items.length ? (answeredCount / def.items.length) * 100 : 0}%` }}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {score}
-          </span>
-          {band && (
-            <Badge color={SEVERITY_COLOR[band.severity ?? "normal"]}>
-              {band.label}
-            </Badge>
-          )}
-          {!complete && (
-            <span className="text-xs text-amber-500">
-              (parcial)
+        <div className="flex shrink-0 items-baseline gap-3">
+          <div className="text-right">
+            <div className="text-[0.65rem] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Escore
+            </div>
+            <span className="text-3xl font-bold leading-none tabular-nums text-slate-900 dark:text-slate-100">
+              {score}
             </span>
-          )}
+          </div>
+          <div className="flex items-center gap-2 self-center">
+            {band && (
+              <Badge color={SEVERITY_COLOR[band.severity ?? "normal"]}>
+                {band.label}
+              </Badge>
+            )}
+            {!complete && (
+              <span className="text-xs font-medium text-amber-500">
+                (parcial)
+              </span>
+            )}
+          </div>
         </div>
       </Card>
     </div>

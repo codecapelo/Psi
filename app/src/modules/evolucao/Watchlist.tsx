@@ -212,15 +212,17 @@ export function EvolucaoWatchlist({
 
   return (
     <div className="border-t border-slate-100 p-3 dark:border-slate-800">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+      <div className="mb-2.5 flex items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-1.5">
-          <ClipboardList className="h-4 w-4 text-brand-500" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-50 text-accent-600 ring-1 ring-inset ring-accent-100 dark:bg-accent-900/30 dark:text-accent-300 dark:ring-accent-900/40">
+            <ClipboardList className="h-3.5 w-3.5" />
+          </span>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Estado na admissão
           </p>
         </div>
         {admission && (
-          <span className="shrink-0 text-[10px] text-slate-400">
+          <span className="shrink-0 text-[10px] tabular-nums text-slate-400">
             {formatDate(admission.createdAt)}
           </span>
         )}
@@ -240,7 +242,7 @@ export function EvolucaoWatchlist({
           {scales.length > 0 && (
             <div>
               <p className="mb-1 flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300">
-                <Activity className="h-3.5 w-3.5 text-brand-500" /> Escalas na admissão
+                <Activity className="h-3.5 w-3.5 text-accent-500" /> Escalas na admissão
               </p>
               <div className="flex flex-wrap gap-1">
                 {scales.map((s) => (
@@ -277,7 +279,7 @@ export function EvolucaoWatchlist({
 
           {orientacoes && <ConductaBlock text={orientacoes} />}
 
-          <p className="text-[10px] italic text-slate-400">
+          <p className="rounded-lg bg-accent-50/60 px-2.5 py-1.5 text-[10px] italic leading-relaxed text-accent-700 dark:bg-accent-900/15 dark:text-accent-300/90">
             Reavalie estes pontos a cada evolução, registrando melhora ou piora.
           </p>
         </div>

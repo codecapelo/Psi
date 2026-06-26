@@ -209,11 +209,13 @@ export default function AssistenteStep() {
       <AiDisclaimer />
 
       {/* Área de chat */}
-      <Card className="mt-4 flex h-[520px] flex-col overflow-hidden">
+      <Card className="mt-4 flex h-[520px] flex-col overflow-hidden ring-1 ring-inset ring-violet-100 dark:ring-violet-900/30">
         {/* Cabeçalho com ações rápidas */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-violet-500" />
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-violet-50/40 px-4 py-3 dark:border-slate-800 dark:bg-violet-900/10">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 ring-1 ring-inset ring-violet-200/70 dark:bg-violet-900/40 dark:text-violet-300 dark:ring-violet-900/50">
+              <Bot className="h-5 w-5" />
+            </span>
             <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
               SOPSi Assistant
             </span>
@@ -271,9 +273,9 @@ export default function AssistenteStep() {
         {/* Mensagens */}
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {!hasMessages ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30">
-                <MessageSquare className="h-7 w-7 text-violet-400" />
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center animate-fade-in">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-500 ring-1 ring-inset ring-violet-200/70 dark:bg-violet-900/30 dark:text-violet-300 dark:ring-violet-900/40">
+                <MessageSquare className="h-7 w-7" />
               </div>
               <div>
                 <p className="font-medium text-slate-700 dark:text-slate-200">

@@ -1,3 +1,4 @@
+import { CheckCircle2 } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CheckboxItem, Field, Textarea, Button } from "@/components/ui";
 import { useExamSlice } from "@/context/ExamContext";
@@ -46,16 +47,21 @@ export function makeDomainStep(domainId: string) {
         title={domain.title}
         description={domain.description}
         actions={
-          <Button variant="outline" size="sm" onClick={fillNormal}>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            onClick={fillNormal}
+          >
             Marcar normais
           </Button>
         }
       >
-        <Card className="p-5">
+        <Card className="divide-y divide-slate-100 p-5 dark:divide-slate-800">
           {domain.categories.map((cat, ci) => (
-            <div key={ci} className="mb-4 last:mb-0">
+            <div key={ci} className="py-4 first:pt-0 last:pb-0">
               {cat.name && (
-                <h4 className="mb-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   {cat.name}
                 </h4>
               )}

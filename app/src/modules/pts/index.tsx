@@ -81,8 +81,8 @@ function AtividadeLinha({
 }) {
   return (
     <div className="mb-2 flex items-start gap-2">
-      <span className="mt-2 shrink-0 text-xs text-slate-400 dark:text-slate-500 w-5 text-right">
-        {index + 1}.
+      <span className="mt-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-medium tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+        {index + 1}
       </span>
       <div className="flex-1 grid gap-2 sm:grid-cols-3">
         <Input
@@ -104,7 +104,7 @@ function AtividadeLinha({
       <button
         type="button"
         onClick={onRemove}
-        className="mt-2 shrink-0 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+        className="mt-1.5 shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
         aria-label="Remover linha"
       >
         <Trash2 className="h-4 w-4" />
@@ -160,16 +160,16 @@ function BlocoAtividades({
       </div>
 
       {lista.length === 0 ? (
-        <p className="text-xs text-slate-400 dark:text-slate-500 italic py-1">
+        <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2.5 text-xs italic text-slate-400 dark:border-slate-700 dark:text-slate-500">
           Nenhuma atividade cadastrada. Clique em "Adicionar linha".
         </p>
       ) : (
         <>
           {/* Cabeçalhos das colunas */}
-          <div className="mb-1 hidden sm:grid sm:grid-cols-3 gap-2 pl-7 pr-8">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Ação</span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Responsável</span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Prazo</span>
+          <div className="mb-1.5 hidden sm:grid sm:grid-cols-3 gap-2 pl-8 pr-9">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Ação</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Responsável</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Prazo</span>
           </div>
           {lista.map((ativ, idx) => (
             <AtividadeLinha

@@ -69,9 +69,9 @@ function WizardInner({ stepId }: { stepId?: string }) {
   }
   if (!exam) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500 dark:text-slate-400">
         <p>Exame não encontrado.</p>
-        <Link to="/" className="text-brand-600 hover:underline">
+        <Link to="/" className="text-brand-600 transition-colors hover:text-brand-700 hover:underline dark:text-brand-400">
           Voltar aos pacientes
         </Link>
       </div>
@@ -127,19 +127,19 @@ function WizardInner({ stepId }: { stepId?: string }) {
         <div className="border-b border-slate-100 p-4 dark:border-slate-800">
           <Link
             to={`/pacientes/${exam.patientId}/historico`}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-brand-600 dark:text-slate-400"
           >
             <ArrowLeft className="h-4 w-4" /> Cronologia
           </Link>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="truncate font-semibold text-slate-900 dark:text-slate-100">
+          <div className="mt-2.5 flex items-center gap-2">
+            <span className="truncate font-semibold tracking-tight text-slate-900 dark:text-slate-100">
               {exam.patient.name}
             </span>
-            <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+            <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
               {TIPO_LABEL[tipo] ?? tipo}
             </span>
           </div>
-          <div className="text-xs text-slate-400">
+          <div className="mt-1 text-xs font-medium text-slate-400 tabular-nums dark:text-slate-500">
             Etapa {idx + 1} de {total}
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -152,7 +152,7 @@ function WizardInner({ stepId }: { stepId?: string }) {
         <nav className="flex-1 space-y-4 p-3">
           {grouped.map(({ group, steps: gsteps }) => (
             <div key={group}>
-              <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <p className="px-2 pb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 {group}
               </p>
               <div className="space-y-0.5">
@@ -166,15 +166,15 @@ function WizardInner({ stepId }: { stepId?: string }) {
                       key={s.id}
                       onClick={() => go(s.id)}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                        "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition-colors",
                         active
-                          ? "bg-brand-50 font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
+                          ? "bg-brand-50 font-medium text-brand-700 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40"
                           : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
                       )}
                     >
                       <span
                         className={cn(
-                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums transition-colors",
                           active
                             ? "bg-brand-600 text-white"
                             : complete
@@ -226,7 +226,7 @@ function WizardInner({ stepId }: { stepId?: string }) {
           >
             {prev ? prev.shortTitle || prev.title : "Início"}
           </Button>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs font-medium text-slate-400 tabular-nums dark:text-slate-500">
             {idx + 1} / {total}
           </span>
           {next ? (

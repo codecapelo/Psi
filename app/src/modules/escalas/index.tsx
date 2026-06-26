@@ -104,32 +104,39 @@ export default function EscalasStep() {
         key={s.id}
         onClick={() => setActiveId(s.id)}
         className={cn(
-          "rounded-xl border bg-white p-4 text-left shadow-sm transition-colors dark:bg-slate-900",
+          "group flex flex-col rounded-xl border bg-white p-4 text-left shadow-card transition-all hover:shadow-card-hover dark:bg-slate-900",
           isSuggested
-            ? "border-amber-400 ring-1 ring-amber-300 dark:border-amber-500/60 dark:ring-amber-500/30"
-            : "border-slate-200 hover:border-brand-400 dark:border-slate-800",
+            ? "border-amber-300 ring-1 ring-inset ring-amber-200 hover:border-amber-400 dark:border-amber-500/50 dark:ring-amber-500/30 dark:hover:border-amber-500/70"
+            : "border-slate-200 hover:border-brand-300 dark:border-slate-800 dark:hover:border-slate-700",
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
+        <div className="flex items-start justify-between gap-2">
+          <span
+            className={cn(
+              "inline-flex items-center rounded-lg px-2.5 py-1 text-sm font-semibold ring-1 ring-inset transition-colors",
+              isSuggested
+                ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-amber-800/60"
+                : "bg-slate-100 text-slate-700 ring-slate-200 group-hover:bg-brand-50 group-hover:text-brand-700 group-hover:ring-brand-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:group-hover:bg-brand-900/30 dark:group-hover:text-brand-300 dark:group-hover:ring-brand-900/40",
+            )}
+          >
             {s.acronym}
           </span>
-          <span className="flex shrink-0 items-center gap-1">
+          <span className="flex shrink-0 items-center gap-1.5">
             {isSuggested && <Sparkles className="h-4 w-4 text-amber-500" />}
             {res?.completedAt && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
           </span>
         </div>
-        <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
           {s.description}
         </p>
         {isSuggested && reason && (
-          <p className="mt-1 line-clamp-2 text-xs text-amber-700 dark:text-amber-300">
+          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
             {reason}
           </p>
         )}
         {res && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+          <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+            <span className="text-base font-bold tabular-nums text-slate-900 dark:text-slate-100">
               {res.score}
             </span>
             {res.band && (
@@ -168,14 +175,16 @@ export default function EscalasStep() {
       ) : (
         <div className="space-y-6">
           {suggestedIds.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900/40 dark:bg-amber-900/10">
-              <div className="mb-1 flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-amber-500" />
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-card dark:border-amber-900/40 dark:bg-amber-900/10">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-600 ring-1 ring-inset ring-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:ring-amber-800/60">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                   Sugeridas pela transcrição
                 </h3>
               </div>
-              <p className="mb-3 text-xs text-amber-700/80 dark:text-amber-300/80">
+              <p className="mb-3 text-xs leading-relaxed text-amber-700/80 dark:text-amber-300/80">
                 Indicadas pelo material clínico — confirme e aplique. Ao abrir uma escala,
                 você pode pré-preenchê-la pela IA.
               </p>
@@ -190,7 +199,7 @@ export default function EscalasStep() {
 
           {Object.entries(byCategory).map(([cat, scales]) => (
             <div key={cat}>
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <h3 className="mb-2.5 text-sm font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 {cat}
               </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

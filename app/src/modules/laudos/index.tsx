@@ -13,6 +13,7 @@ import {
   Button,
   Badge,
   EmptyState,
+  Spinner,
 } from "@/components/ui";
 import { useExam } from "@/context/ExamContext";
 import { useToast } from "@/context/ToastContext";
@@ -378,7 +379,8 @@ export default function LaudosStep() {
         />
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {loadingTemplates && (
-            <p className="px-5 py-4 text-sm text-slate-500 dark:text-slate-400">
+            <p className="flex items-center gap-2 px-5 py-4 text-sm text-slate-500 dark:text-slate-400">
+              <Spinner className="h-4 w-4" />
               Carregando modelos personalizados…
             </p>
           )}
@@ -403,15 +405,17 @@ export default function LaudosStep() {
                   : "",
               ].join(" ")}
             >
-              <div className="flex min-w-0 items-center gap-2">
-                <FileText
+              <div className="flex min-w-0 items-center gap-3">
+                <span
                   className={[
-                    "h-4 w-4 shrink-0",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset transition-colors",
                     selectedId === tpl.id
-                      ? "text-brand-600 dark:text-brand-400"
-                      : "text-slate-400",
+                      ? "bg-brand-100 text-brand-600 ring-brand-200 dark:bg-brand-900/40 dark:text-brand-300 dark:ring-brand-900/50"
+                      : "bg-slate-100 text-slate-400 ring-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:ring-slate-700",
                   ].join(" ")}
-                />
+                >
+                  <FileText className="h-4 w-4 shrink-0" />
+                </span>
                 <span
                   className={[
                     "truncate text-sm font-medium",
@@ -476,7 +480,7 @@ export default function LaudosStep() {
                 value={editableBody}
                 onChange={(e) => setEditableBody(e.target.value)}
                 rows={20}
-                className="font-mono text-xs leading-relaxed"
+                className="bg-slate-50/60 font-mono text-xs leading-relaxed dark:bg-slate-950/40"
               />
             </Field>
             <div className="flex justify-end gap-2">
@@ -576,10 +580,13 @@ export default function LaudosStep() {
           {customTemplates.map((t) => (
             <div
               key={t.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700"
+              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800/40"
             >
-              <span className="flex-1 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                {t.name}
+              <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {t.name}
+                </span>
               </span>
               <Button
                 variant="danger"
