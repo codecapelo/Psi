@@ -1,5 +1,15 @@
 import { useRef, useState } from "react";
-import { FileText, Trash2, Upload, MessageSquare, ChevronDown } from "lucide-react";
+import {
+  FileText,
+  Trash2,
+  Upload,
+  MessageSquare,
+  ChevronDown,
+  FolderOpen,
+  Sparkles,
+  History,
+  CornerDownRight,
+} from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import {
   Card,
@@ -148,7 +158,14 @@ export default function AuditoriaPdfStep() {
       {/* ------------------------------------------------------------------ */}
       <Card className="mb-4">
         <CardHeader
-          title="Documentos"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                <FolderOpen className="h-4 w-4" />
+              </span>
+              Documentos
+            </span>
+          }
           subtitle="Relatórios, encaminhamentos, exames e laudos multiprofissionais."
           actions={
             <label htmlFor="pdf-upload" className="cursor-pointer">
@@ -206,16 +223,20 @@ export default function AuditoriaPdfStep() {
               {slice.docs.map((doc, i) => (
                 <li
                   key={i}
-                  className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition-colors hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-slate-600"
                 >
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 p-4">
                     <div className="flex min-w-0 items-center gap-3">
-                      <FileText className="h-5 w-5 shrink-0 text-brand-500" />
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                        <FileText className="h-5 w-5" />
+                      </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                        <p className="truncate font-medium text-slate-900 dark:text-slate-100">
                           {doc.name}
                         </p>
-                        <Badge color="slate">{doc.text.length.toLocaleString("pt-BR")} caracteres</Badge>
+                        <div className="mt-1">
+                          <Badge color="slate">{doc.text.length.toLocaleString("pt-BR")} caracteres</Badge>
+                        </div>
                       </div>
                     </div>
                     <Button
@@ -231,7 +252,7 @@ export default function AuditoriaPdfStep() {
 
                   {/* Texto extraído em details recolhível */}
                   <details className="group border-t border-slate-200 dark:border-slate-700">
-                    <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                    <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2 text-xs font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
                       <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
                       Ver texto extraído
                     </summary>
@@ -251,9 +272,16 @@ export default function AuditoriaPdfStep() {
       {/* ------------------------------------------------------------------ */}
       {/* 2. Perguntar à IA                                                   */}
       {/* ------------------------------------------------------------------ */}
-      <Card className="mb-4">
+      <Card className="mb-4 ring-1 ring-inset ring-violet-100 dark:ring-violet-900/30">
         <CardHeader
-          title="Perguntar à IA"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 ring-1 ring-inset ring-violet-100 dark:bg-violet-900/30 dark:text-violet-300 dark:ring-violet-900/40">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              Perguntar à IA
+            </span>
+          }
           subtitle="A IA responde com base exclusivamente nos documentos carregados acima."
         />
         <div className="p-5">
@@ -281,7 +309,7 @@ export default function AuditoriaPdfStep() {
               }
             }}
           />
-          <p className="mt-1 text-xs text-slate-400">Ctrl+Enter para enviar.</p>
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Ctrl+Enter para enviar.</p>
 
           <div className="mt-3">
             <Button
@@ -306,25 +334,37 @@ export default function AuditoriaPdfStep() {
       {slice.qa.length > 0 && (
         <Card>
           <CardHeader
-            title="Histórico de consultas"
+            title={
+              <span className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                  <History className="h-4 w-4" />
+                </span>
+                Histórico de consultas
+              </span>
+            }
             subtitle={`${slice.qa.length} pergunta${slice.qa.length !== 1 ? "s" : ""} realizada${slice.qa.length !== 1 ? "s" : ""}.`}
           />
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {slice.qa.map((entry, i) => (
               <div key={i} className="p-5">
                 {/* Pergunta */}
-                <div className="mb-3 flex items-start gap-2">
-                  <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                <div className="mb-3 flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </span>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                     {entry.question}
                   </p>
                 </div>
 
                 {/* Resposta */}
-                <div className="ml-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
-                  <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                    {entry.answer}
-                  </pre>
+                <div className="ml-8 flex items-start gap-2.5">
+                  <CornerDownRight className="mt-2.5 h-3.5 w-3.5 shrink-0 text-violet-400" />
+                  <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
+                    <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                      {entry.answer}
+                    </pre>
+                  </div>
                 </div>
               </div>
             ))}

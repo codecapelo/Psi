@@ -113,20 +113,20 @@ export default function SumulaStep() {
       {/* ---------------------------------------------------------------- */}
       {/* Barra de busca                                                   */}
       {/* ---------------------------------------------------------------- */}
-      <Card className="mb-4 p-4">
+      <Card className="mb-4 px-4 py-3">
         <div className="flex items-center gap-3">
           <Search className="h-4 w-4 shrink-0 text-slate-400" />
           <Input
             placeholder="Pesquisar domínio, achado ou observação…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="border-0 bg-transparent p-0 shadow-none focus:ring-0 dark:bg-transparent"
+            className="border-0 bg-transparent p-0 shadow-none hover:border-0 focus:ring-0 dark:bg-transparent"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               limpar
             </button>
@@ -139,9 +139,14 @@ export default function SumulaStep() {
       {/* ---------------------------------------------------------------- */}
       <div className="mb-4 space-y-3">
         {visibleDomains.length === 0 ? (
-          <Card className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
-            Nenhum domínio corresponde à pesquisa.
-          </Card>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/40 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-900/30">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+              <Search className="h-6 w-6" />
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Nenhum domínio corresponde à pesquisa.
+            </p>
+          </div>
         ) : (
           visibleDomains.map((domain) => {
             const state = psico[domain.id];
@@ -174,7 +179,7 @@ export default function SumulaStep() {
                       )}
                     </>
                   ) : (
-                    <span className="text-xs italic text-slate-400 dark:text-slate-500">
+                    <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-0.5 text-xs italic text-slate-400 ring-1 ring-inset ring-slate-200 dark:bg-slate-800/50 dark:text-slate-500 dark:ring-slate-700">
                       sem registro
                     </span>
                   )}

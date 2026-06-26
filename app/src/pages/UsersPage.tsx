@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users as UsersIcon, Trash2, KeyRound, UserPlus } from "lucide-react";
+import { Users as UsersIcon, Trash2, KeyRound, UserPlus, Mail } from "lucide-react";
 import apiClient, { ApiError } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import { formatDate } from "@/lib/utils";
@@ -83,14 +83,21 @@ export default function UsersPage() {
   const data = list.data ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-        Usuários
-      </h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-        Profissionais com acesso ao sistema. O administrador é definido por
-        variável de ambiente e não aparece nesta lista.
-      </p>
+    <div className="mx-auto max-w-3xl animate-fade-in p-6">
+      <div className="mb-6 flex items-center gap-3">
+        <span className="hidden h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 sm:flex dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+          <UsersIcon className="h-5 w-5" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Usuários
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Profissionais com acesso ao sistema. O administrador é definido por
+            variável de ambiente e não aparece nesta lista.
+          </p>
+        </div>
+      </div>
 
       {/* Cadastro */}
       <Card className="mb-6">
@@ -151,15 +158,20 @@ export default function UsersPage() {
             {data.map((u) => (
               <li
                 key={u.id}
-                className="flex items-center justify-between gap-3 px-4 py-3"
+                className="flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
-                    {u.email}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    desde {formatDate(u.createdAt)}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:from-brand-900/40 dark:to-brand-900/20 dark:text-brand-300 dark:ring-brand-900/40">
+                    <Mail className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {u.email}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      desde {formatDate(u.createdAt)}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button

@@ -16,16 +16,69 @@
   }
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    /* Inter Variable com refinamentos tipográficos discretos */
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  /* Títulos um pouco mais justos — leitura clínica mais firme */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.012em;
+  }
+  /* Números tabulares onde alinhamento importa (datas, escores, contagens) */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
+  /* Fundo da aplicação — leve brilho azul/teal nos cantos, calmo e discreto */
+  .app-canvas {
+    background-color: theme("colors.slate.50");
+    background-image:
+      radial-gradient(
+        48rem 48rem at 108% -8%,
+        rgb(51 123 246 / 0.06),
+        transparent 60%
+      ),
+      radial-gradient(
+        42rem 42rem at -8% 4%,
+        rgb(22 170 164 / 0.05),
+        transparent 55%
+      );
+  }
+  .dark .app-canvas {
+    background-color: theme("colors.slate.950");
+    background-image:
+      radial-gradient(
+        48rem 48rem at 108% -8%,
+        rgb(51 123 246 / 0.10),
+        transparent 60%
+      ),
+      radial-gradient(
+        42rem 42rem at -8% 4%,
+        rgb(22 170 164 / 0.07),
+        transparent 55%
+      );
+  }
+
+  /* Seta personalizada do <Select> (appearance-none) — neutra em ambos temas */
+  .select-chevron {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1rem;
+  }
+
   /* Campo de formulário padrão */
   .field-label {
-    @apply mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300;
+    @apply mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300;
   }
   .field-hint {
-    @apply mt-1 text-xs text-slate-500 dark:text-slate-400;
+    @apply mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400;
   }
   /* Tooltip simples baseado em title nativo + estilo de "dica" */
   .clinical-tip {
@@ -36,16 +89,16 @@
     @apply text-sm leading-relaxed text-slate-700 dark:text-slate-300;
   }
   .prose-clinical h1 {
-    @apply mb-2 mt-4 text-lg font-semibold;
+    @apply mb-2 mt-5 text-lg font-semibold text-slate-900 dark:text-slate-100;
   }
   .prose-clinical h2 {
-    @apply mb-2 mt-3 text-base font-semibold;
+    @apply mb-2 mt-4 text-base font-semibold text-slate-900 dark:text-slate-100;
   }
   .prose-clinical ul {
-    @apply my-2 list-disc pl-5;
+    @apply my-2 list-disc pl-5 marker:text-slate-400;
   }
   .prose-clinical ol {
-    @apply my-2 list-decimal pl-5;
+    @apply my-2 list-decimal pl-5 marker:text-slate-400;
   }
   .prose-clinical p {
     @apply my-2;
@@ -56,16 +109,62 @@
   .prose-clinical code {
     @apply rounded bg-slate-100 px-1 py-0.5 text-xs dark:bg-slate-800;
   }
+  .prose-clinical a {
+    @apply font-medium text-brand-600 underline decoration-brand-300 underline-offset-2 hover:text-brand-700 dark:text-brand-400;
+  }
+}
+
+/* Seleção de texto com tom da marca */
+::selection {
+  @apply bg-brand-200/60 text-brand-950;
+}
+.dark ::selection {
+  background-color: rgb(51 123 246 / 0.32);
+  @apply text-white;
 }
 
 /* Scrollbar discreta */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-slate-300 dark:bg-slate-700;
+  @apply rounded-full border-[3px] border-solid border-transparent bg-slate-300/80 bg-clip-padding dark:bg-slate-700/80;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-600;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Impressão / "Salvar como PDF" da vista de documento assinado.
+   Libera as alturas/overflow fixos do app para o conteúdo fluir entre páginas
+   e remove o cromo (cabeçalho, brilho de fundo) deixando só o documento. */
+@media print {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .app-canvas {
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .doc-section {
+    break-inside: avoid;
+  }
+}
+
+/* Respeita preferência de menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

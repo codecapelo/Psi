@@ -41,17 +41,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ toast }}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2.5">
         {toasts.map((t) => (
           <div
             key={t.id}
             className={cn(
-              "pointer-events-auto flex items-start gap-2 rounded-lg border p-3 shadow-lg",
-              "bg-white dark:bg-slate-800",
+              "pointer-events-auto flex items-start gap-3 rounded-xl border bg-white p-3.5 shadow-pop ring-1 ring-slate-900/5 animate-slide-in-right dark:bg-slate-800 dark:ring-white/5",
               t.kind === "success" &&
-                "border-emerald-200 dark:border-emerald-900",
-              t.kind === "error" && "border-red-200 dark:border-red-900",
-              t.kind === "info" && "border-slate-200 dark:border-slate-700",
+                "border-l-4 border-l-emerald-500 border-y-emerald-100 border-r-emerald-100 dark:border-y-emerald-900/40 dark:border-r-emerald-900/40",
+              t.kind === "error" &&
+                "border-l-4 border-l-red-500 border-y-red-100 border-r-red-100 dark:border-y-red-900/40 dark:border-r-red-900/40",
+              t.kind === "info" &&
+                "border-l-4 border-l-brand-500 border-y-slate-100 border-r-slate-100 dark:border-y-slate-700 dark:border-r-slate-700",
             )}
           >
             {t.kind === "success" && (
@@ -63,12 +64,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {t.kind === "info" && (
               <Info className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
             )}
-            <span className="flex-1 text-sm text-slate-700 dark:text-slate-200">
+            <span className="flex-1 text-sm leading-snug text-slate-700 dark:text-slate-200">
               {t.message}
             </span>
             <button
               onClick={() => remove(t.id)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="-mr-1 -mt-1 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
               aria-label="Fechar"
             >
               <X className="h-4 w-4" />

@@ -31,6 +31,14 @@ import {
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
+/** Iniciais do paciente para o avatar (apenas apresentação). */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function PatientsPage() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -59,15 +67,20 @@ export default function PatientsPage() {
   const patients = patientsQ.data ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            Meus Pacientes
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Cadastre, busque e inicie exames clínicos.
-          </p>
+    <div className="mx-auto max-w-5xl animate-fade-in p-6">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="hidden h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 sm:flex dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+            <Users className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              Meus Pacientes
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Cadastre, busque e inicie exames clínicos.
+            </p>
+          </div>
         </div>
         <Button icon={<UserPlus className="h-4 w-4" />} onClick={() => setShowCreate(true)}>
           Cadastrar paciente
@@ -109,16 +122,24 @@ export default function PatientsPage() {
           }
         />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {patients.map((p) => (
-            <Card key={p.id} className="flex items-center justify-between p-4">
-              <div className="min-w-0">
-                <div className="truncate font-medium text-slate-900 dark:text-slate-100">
-                  {p.name}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {p.externalId ? `ID: ${p.externalId} · ` : ""}
-                  Atualizado em {formatDate(p.updatedAt)}
+            <Card
+              key={p.id}
+              className="flex items-center justify-between gap-3 p-4 transition-all hover:border-slate-300 hover:shadow-card-hover dark:hover:border-slate-700"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-brand-50 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-100 dark:from-brand-900/40 dark:to-brand-900/20 dark:text-brand-300 dark:ring-brand-900/40">
+                  {initials(p.name)}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-slate-900 dark:text-slate-100">
+                    {p.name}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    {p.externalId ? `ID: ${p.externalId} · ` : ""}
+                    Atualizado em {formatDate(p.updatedAt)}
+                  </div>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">

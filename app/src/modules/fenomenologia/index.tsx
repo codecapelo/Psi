@@ -1,3 +1,4 @@
+import { Handshake, Brain, Activity, User, Sparkles, type LucideIcon } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea } from "@/components/ui";
 import { useExamSlice } from "@/context/ExamContext";
@@ -61,6 +62,18 @@ function TextField({
   );
 }
 
+/** Título de seção com chip de ícone — apenas apresentação. */
+function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: string }) {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+        <Icon className="h-4 w-4" />
+      </span>
+      {children}
+    </span>
+  );
+}
+
 export default function FenomenologiaStep() {
   const [s, patch] = useExamSlice<FenomenologiaSlice>(SLICE.fenomenologia, DEFAULTS);
 
@@ -72,7 +85,7 @@ export default function FenomenologiaStep() {
       {/* Bloco 1: Encontro */}
       <Card className="mb-4">
         <CardHeader
-          title="Encontro Clínico"
+          title={<SectionTitle icon={Handshake}>Encontro Clínico</SectionTitle>}
           subtitle="Como o paciente se apresenta e qual é o clima da consulta."
         />
         <div className="p-5">
@@ -89,7 +102,7 @@ export default function FenomenologiaStep() {
       {/* Bloco 2: Experiência central */}
       <Card className="mb-4">
         <CardHeader
-          title="Experiência Central"
+          title={<SectionTitle icon={Brain}>Experiência Central</SectionTitle>}
           subtitle="O fenômeno que organiza o sofrimento e como o tempo é vivenciado."
         />
         <div className="p-5">
@@ -113,7 +126,7 @@ export default function FenomenologiaStep() {
       {/* Bloco 3: Corpo e espaço */}
       <Card className="mb-4">
         <CardHeader
-          title="Corpo, Espaço e Alteridade"
+          title={<SectionTitle icon={Activity}>Corpo, Espaço e Alteridade</SectionTitle>}
           subtitle="Como o paciente habita o próprio corpo, o espaço e a relação com os outros."
         />
         <div className="p-5">
@@ -137,7 +150,7 @@ export default function FenomenologiaStep() {
       {/* Bloco 4: Self e afeto de fundo */}
       <Card className="mb-4">
         <CardHeader
-          title="Self e Tonalidade Afetiva"
+          title={<SectionTitle icon={User}>Self e Tonalidade Afetiva</SectionTitle>}
           subtitle="Senso de identidade e o humor de fundo que colore toda a experiência."
         />
         <div className="p-5">
@@ -161,7 +174,7 @@ export default function FenomenologiaStep() {
       {/* Bloco 5: Síntese fenomenológica */}
       <Card>
         <CardHeader
-          title="Síntese Fenomenológica"
+          title={<SectionTitle icon={Sparkles}>Síntese Fenomenológica</SectionTitle>}
           subtitle="Integração descritiva do caso, redigida pelo profissional."
         />
         <div className="p-5">

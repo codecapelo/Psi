@@ -78,14 +78,21 @@ export default function PrivacyPage() {
   const wipeButtonEnabled = wipeConfirmText === "APAGAR";
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-        Dados &amp; Privacidade
-      </h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-        Consentimento informado, armazenamento de dados e direito ao
-        esquecimento (LGPD).
-      </p>
+    <div className="mx-auto max-w-3xl animate-fade-in p-6">
+      <div className="mb-6 flex items-center gap-3">
+        <span className="hidden h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 sm:flex dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+          <ShieldCheck className="h-5 w-5" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Dados &amp; Privacidade
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Consentimento informado, armazenamento de dados e direito ao
+            esquecimento (LGPD).
+          </p>
+        </div>
+      </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* Card 1 — Consentimento                                              */}
@@ -139,7 +146,7 @@ export default function PrivacyPage() {
         />
         <div className="space-y-4 p-5">
           {/* Banco de dados */}
-          <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+          <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
             <Database className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -172,7 +179,7 @@ export default function PrivacyPage() {
           </div>
 
           {/* Auditoria */}
-          <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+          <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
             <FileText className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
             <div>
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
@@ -187,7 +194,7 @@ export default function PrivacyPage() {
           </div>
 
           {/* IA */}
-          <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+          <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
             <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
             <div>
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
@@ -258,7 +265,7 @@ export default function PrivacyPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Card 4 — Zona de Perigo                                            */}
       {/* ------------------------------------------------------------------ */}
-      <Card className="border-red-300 dark:border-red-800">
+      <Card className="border-red-200 bg-red-50/40 dark:border-red-900/60 dark:bg-red-950/20">
         <CardHeader
           title={
             <span className="flex items-center gap-2 text-red-600 dark:text-red-400">

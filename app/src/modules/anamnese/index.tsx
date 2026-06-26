@@ -1,5 +1,17 @@
-import { useState } from "react";
-import { Sparkles, Plus, Trash2, List } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  Sparkles,
+  Plus,
+  Trash2,
+  List,
+  MapPin,
+  Mic,
+  ClipboardList,
+  Pill,
+  Users,
+  FlaskConical,
+  Brain,
+} from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea, Input, Select, Button } from "@/components/ui";
 import { TranscribeButton, AiDisclaimer, useAi } from "@/components/ai";
@@ -199,6 +211,21 @@ function ComboBox({
       ))}
       <option value={OUTRO}>Outro (digitar)…</option>
     </Select>
+  );
+}
+
+/**
+ * Título de seção com um "chip" decorativo de ícone à esquerda. Puramente
+ * visual — serve apenas para tornar as seções da anamnese mais escaneáveis.
+ */
+function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+        {icon}
+      </span>
+      {children}
+    </span>
   );
 }
 
@@ -627,7 +654,9 @@ export default function AnamneseStep() {
       description="Registro longitudinal da história clínica. Use a transcrição inteligente para registrar o atendimento por voz."
     >
       <Card className="mb-4">
-        <CardHeader title="Contexto do Atendimento" />
+        <CardHeader
+          title={<SectionTitle icon={<MapPin className="h-4 w-4" />}>Contexto do Atendimento</SectionTitle>}
+        />
         <div className="p-5">
           <Field label="Local do atendimento">
             <Select
@@ -647,11 +676,11 @@ export default function AnamneseStep() {
 
       <Card className="mb-4">
         <CardHeader
-          title="Transcrição do Atendimento"
+          title={<SectionTitle icon={<Mic className="h-4 w-4" />}>Transcrição do Atendimento</SectionTitle>}
           subtitle="Grave a consulta uma única vez (ou cole o texto) e deixe a IA distribuir o conteúdo nos campos abaixo e marcar os achados do exame psíquico nas abas dos domínios. As anotações do profissional ajudam a organização."
         />
         <div className="p-5">
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap gap-2">
             <TranscribeButton
               onTranscript={(t) =>
                 patch({
@@ -708,7 +737,9 @@ export default function AnamneseStep() {
       </Card>
 
       <Card className="mb-4">
-        <CardHeader title="História Clínica" />
+        <CardHeader
+          title={<SectionTitle icon={<ClipboardList className="h-4 w-4" />}>História Clínica</SectionTitle>}
+        />
         <div className="p-5">
           <TextField
             slice={a}
@@ -751,7 +782,7 @@ export default function AnamneseStep() {
 
       <Card className="mb-4">
         <CardHeader
-          title="História do Uso de Substâncias"
+          title={<SectionTitle icon={<Pill className="h-4 w-4" />}>História do Uso de Substâncias</SectionTitle>}
           subtitle="Opcional — preencha quando houver uso de substâncias. Detalhe cada substância; aplique AUDIT/CIWA-Ar/COWS na etapa de Escalas."
           actions={
             <Button
@@ -770,7 +801,7 @@ export default function AnamneseStep() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1040px] border-collapse text-sm">
               <thead>
-                <tr className="text-left text-xs font-medium text-slate-500 dark:text-slate-400">
+                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <th className="pb-2 pr-2">Substância</th>
                   <th className="pb-2 pr-2">Início</th>
                   <th className="pb-2 pr-2">Via</th>
@@ -784,40 +815,45 @@ export default function AnamneseStep() {
               <tbody>
                 {subs.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-3 text-sm text-slate-400">
-                      Nenhuma substância registrada. Use "Adicionar substância" ou "Extrair da transcrição (IA)".
+                    <td colSpan={8} className="py-3">
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-4 py-4 text-center text-sm text-slate-400 dark:border-slate-800 dark:bg-slate-800/30 dark:text-slate-500">
+                        Nenhuma substância registrada. Use "Adicionar substância" ou "Extrair da transcrição (IA)".
+                      </div>
                     </td>
                   </tr>
                 )}
                 {subs.map((row, i) => (
-                  <tr key={i} className="align-top">
-                    <td className="py-1 pr-2">
+                  <tr
+                    key={i}
+                    className="align-top border-t border-slate-100 transition-colors hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/30"
+                  >
+                    <td className="py-2 pr-2">
                       <ComboBox value={row.substancia} onChange={(v) => setRow(i, "substancia", v)} options={SUBSTANCIA_OPCOES} placeholder="Substância…" ariaLabel="Substância" />
                     </td>
-                    <td className="py-1 pr-2">
+                    <td className="py-2 pr-2">
                       <ComboBox value={row.inicio} onChange={(v) => setRow(i, "inicio", v)} options={INICIO_OPCOES} placeholder="Início…" ariaLabel="Início do uso" />
                     </td>
-                    <td className="py-1 pr-2">
+                    <td className="py-2 pr-2">
                       <ComboBox value={row.via} onChange={(v) => setRow(i, "via", v)} options={VIA_OPCOES} placeholder="Via…" ariaLabel="Via de uso" />
                     </td>
-                    <td className="py-1 pr-2">
+                    <td className="py-2 pr-2">
                       <ComboBox value={row.quantidade} onChange={(v) => setRow(i, "quantidade", v)} options={QUANTIDADE_OPCOES} placeholder="Quantidade…" ariaLabel="Quantidade" />
                     </td>
-                    <td className="py-1 pr-2">
+                    <td className="py-2 pr-2">
                       <ComboBox value={row.frequencia} onChange={(v) => setRow(i, "frequencia", v)} options={FREQUENCIA_OPCOES} placeholder="Frequência…" ariaLabel="Frequência" />
                     </td>
-                    <td className="py-1 pr-2">
+                    <td className="py-2 pr-2">
                       <ComboBox value={row.ultimoUso} onChange={(v) => setRow(i, "ultimoUso", v)} options={ULTIMO_USO_OPCOES} placeholder="Último uso…" ariaLabel="Último uso" />
                     </td>
-                    <td className="py-1 pr-2">
+                    <td className="py-2 pr-2">
                       <ComboBox value={row.padrao} onChange={(v) => setRow(i, "padrao", v)} options={PADRAO_OPCOES} placeholder="Padrão…" ariaLabel="Padrão atual" />
                     </td>
-                    <td className="py-1">
+                    <td className="py-2">
                       <button
                         type="button"
                         onClick={() => removeRow(i)}
                         aria-label="Remover substância"
-                        className="rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-800"
+                        className="rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-800"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -866,7 +902,9 @@ export default function AnamneseStep() {
       </Card>
 
       <Card className="mb-4">
-        <CardHeader title="História de Vida e Contexto" />
+        <CardHeader
+          title={<SectionTitle icon={<Users className="h-4 w-4" />}>História de Vida e Contexto</SectionTitle>}
+        />
         <div className="p-5">
           <TextField slice={a} patch={patch} label="História do Contexto Familiar" field="familiar" />
           <TextField slice={a} patch={patch} label="História Pessoal e Social" field="pessoalSocial" rows={4} />
@@ -881,7 +919,9 @@ export default function AnamneseStep() {
       </Card>
 
       <Card className="mb-4">
-        <CardHeader title="Exames e Achados Físicos" />
+        <CardHeader
+          title={<SectionTitle icon={<FlaskConical className="h-4 w-4" />}>Exames e Achados Físicos</SectionTitle>}
+        />
         <div className="p-5">
           <TextField
             slice={a}
@@ -902,7 +942,7 @@ export default function AnamneseStep() {
 
       <Card>
         <CardHeader
-          title="Exame Psíquico (Transcrição na Íntegra)"
+          title={<SectionTitle icon={<Brain className="h-4 w-4" />}>Exame Psíquico (Transcrição na Íntegra)</SectionTitle>}
           subtitle="Registre o exame psíquico na íntegra."
         />
         <div className="p-5">

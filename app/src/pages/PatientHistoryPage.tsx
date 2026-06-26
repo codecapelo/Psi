@@ -11,6 +11,7 @@ import {
   LogOut,
   Plus,
   Stethoscope,
+  CalendarClock,
 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { formatDate } from "@/lib/utils";
@@ -65,23 +66,25 @@ function EncounterNode({
   const meta = ENCOUNTER_META[exam.tipo ?? "consulta"] ?? ENCOUNTER_META.consulta;
   const Icon = meta.icon;
   return (
-    <div className="group relative flex w-40 shrink-0 flex-col rounded-lg border border-slate-200 bg-white p-3 transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
+    <div className="group relative flex w-40 shrink-0 flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-card transition-all hover:border-slate-300 hover:shadow-card-hover dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700">
       <button onClick={onOpen} className="text-left">
         <div className="flex items-center gap-1.5">
-          <Icon className="h-4 w-4 text-brand-500" />
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
           <Badge color={meta.color}>{meta.label}</Badge>
         </div>
-        <div className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">
+        <div className="mt-2.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
           {formatDate(exam.createdAt)}
         </div>
-        <div className="text-xs text-slate-400">{formatDate(exam.createdAt, true).split(" ")[1]}</div>
-        <div className="mt-1.5 flex items-center gap-1.5">
+        <div className="text-xs tabular-nums text-slate-400 dark:text-slate-500">{formatDate(exam.createdAt, true).split(" ")[1]}</div>
+        <div className="mt-2 flex items-center gap-1.5">
           {exam.lockedAt ? (
-            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-900/40">
               <Lock className="h-3 w-3" /> Assinada
             </span>
           ) : (
-            <span className="text-xs text-amber-600 dark:text-amber-400">Em aberto</span>
+            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:ring-amber-900/40">Em aberto</span>
           )}
         </div>
       </button>
@@ -89,7 +92,7 @@ function EncounterNode({
         <button
           onClick={onDelete}
           title="Excluir atendimento"
-          className="absolute right-1 top-1 rounded p-1 text-slate-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+          className="absolute right-1.5 top-1.5 rounded-md p-1 text-slate-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:text-slate-600 dark:hover:bg-red-900/20"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -102,8 +105,8 @@ function EncounterNode({
 function Connector({ label }: { label: string }) {
   return (
     <div className="flex w-16 shrink-0 flex-col items-center justify-center px-1 pt-6">
-      <span className="whitespace-nowrap text-[10px] text-slate-400">{label}</span>
-      <div className="mt-1 h-px w-full bg-slate-300 dark:bg-slate-700" />
+      <span className="whitespace-nowrap text-[10px] font-medium tabular-nums text-slate-400 dark:text-slate-500">{label}</span>
+      <div className="mt-1 h-px w-full bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800" />
     </div>
   );
 }
@@ -209,22 +212,27 @@ export default function PatientHistoryPage() {
   const openExam = (id: string) => navigate(`/exame/${id}`);
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-6xl animate-fade-in p-6">
       <Link
         to="/"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400"
       >
         <ArrowLeft className="h-4 w-4" /> Pacientes
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {patientQ.data?.name ?? "Cronologia"}
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Cronologia de atendimentos — internações, evoluções, altas e consultas.
-          </p>
+        <div className="flex items-center gap-3">
+          <span className="hidden h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 sm:flex dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+            <CalendarClock className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              {patientQ.data?.name ?? "Cronologia"}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Cronologia de atendimentos — internações, evoluções, altas e consultas.
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -293,7 +301,10 @@ export default function PatientHistoryPage() {
           {/* Consultas avulsas (sem episódio) */}
           {looseExams.length > 0 && (
             <Card className="p-4">
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  <FileText className="h-4 w-4" />
+                </span>
                 <Badge color="slate">{EPISODE_LABEL.consulta}</Badge>
                 <span className="text-sm text-slate-500 dark:text-slate-400">
                   Atendimentos avulsos
@@ -370,15 +381,24 @@ function EpisodeTrack({
 
   return (
     <Card className="p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
         <div className="flex items-center gap-2">
+          <span
+            className={
+              isInternacao
+                ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40"
+                : "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+            }
+          >
+            {isInternacao ? <DoorOpen className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+          </span>
           <Badge color={isInternacao ? "brand" : "slate"}>
             {EPISODE_LABEL[episode.tipo] ?? episode.tipo}
           </Badge>
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             {episode.titulo || formatDate(episode.openedAt)}
           </span>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">
             {formatDate(episode.openedAt)}
             {episode.closedAt ? ` → ${formatDate(episode.closedAt)}` : ""}
           </span>
@@ -416,7 +436,7 @@ function EpisodeTrack({
         {aberto && isInternacao && !hasAlta && (
           <>
             {exams.length > 0 && <Connector label="" />}
-            <div className="flex w-44 shrink-0 flex-col justify-center gap-2 rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-700">
+            <div className="flex w-44 shrink-0 flex-col justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/30">
               <Button
                 variant="outline"
                 size="sm"
@@ -441,7 +461,7 @@ function EpisodeTrack({
       </div>
 
       {aberto && isInternacao && exams.length > 0 && (
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
           {hasAlta
             ? "Alta iniciada — abra-a e assine para encerrar a internação."
             : "Internação aberta — registre evoluções e finalize com a alta."}

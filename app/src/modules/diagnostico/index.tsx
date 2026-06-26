@@ -1,3 +1,11 @@
+import {
+  Layers,
+  Clock,
+  BookMarked,
+  Sparkles,
+  GitCompareArrows,
+  FileCheck2,
+} from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea, Button } from "@/components/ui";
 import { AiAssistButton, AiDisclaimer } from "@/components/ai";
@@ -152,7 +160,14 @@ export default function DiagnosticoStep() {
       {/* ------------------------------------------------------------------ */}
       <Card className="mb-4">
         <CardHeader
-          title="Diagnóstico Sindrômico"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                <Layers className="h-4 w-4" />
+              </span>
+              Diagnóstico Sindrômico
+            </span>
+          }
           subtitle="Agrupamento transversal dos achados em síndromes psicopatológicas."
           actions={
             <div className="flex flex-wrap gap-2">
@@ -215,7 +230,14 @@ export default function DiagnosticoStep() {
       {/* ------------------------------------------------------------------ */}
       <Card className="mb-4">
         <CardHeader
-          title="Temporalidade e Curso"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                <Clock className="h-4 w-4" />
+              </span>
+              Temporalidade e Curso
+            </span>
+          }
           subtitle="Início, duração, evolução e fatores desencadeantes do quadro."
         />
         <div className="p-5">
@@ -238,7 +260,14 @@ export default function DiagnosticoStep() {
       {/* ------------------------------------------------------------------ */}
       <Card className="mb-4">
         <CardHeader
-          title="Hipótese Nosológica (DSM / CID)"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                <BookMarked className="h-4 w-4" />
+              </span>
+              Hipótese Nosológica (DSM / CID)
+            </span>
+          }
           subtitle="Diagnóstico categorial com código (DSM-5-TR ou CID-11)."
         />
         <div className="p-5">
@@ -259,9 +288,16 @@ export default function DiagnosticoStep() {
       {/* ------------------------------------------------------------------ */}
       {/* 4. Triangulação com IA                                              */}
       {/* ------------------------------------------------------------------ */}
-      <Card className="mb-4">
+      <Card className="mb-4 ring-1 ring-inset ring-violet-100 dark:ring-violet-900/30">
         <CardHeader
-          title="Triangulação Diagnóstica (IA)"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 ring-1 ring-inset ring-violet-100 dark:bg-violet-900/30 dark:text-violet-300 dark:ring-violet-900/40">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              Triangulação Diagnóstica (IA)
+            </span>
+          }
           subtitle="Hipóteses diagnósticas DSM-5-TR/CID-11 mais prováveis com raciocínio clínico."
           actions={
             <AiAssistButton
@@ -312,7 +348,14 @@ export default function DiagnosticoStep() {
       {/* ------------------------------------------------------------------ */}
       <Card className="mb-4">
         <CardHeader
-          title="Diagnósticos Diferenciais"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                <GitCompareArrows className="h-4 w-4" />
+              </span>
+              Diagnósticos Diferenciais
+            </span>
+          }
           subtitle="Hipóteses alternativas que devem ser consideradas e descartadas."
           actions={
             <AiAssistButton
@@ -361,7 +404,14 @@ export default function DiagnosticoStep() {
       {/* ------------------------------------------------------------------ */}
       <Card>
         <CardHeader
-          title="Justificativa Clínica / Evidências"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+                <FileCheck2 className="h-4 w-4" />
+              </span>
+              Justificativa Clínica / Evidências
+            </span>
+          }
           subtitle="Síntese dos elementos que sustentam a conclusão diagnóstica."
         />
         <div className="p-5">

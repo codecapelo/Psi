@@ -7,6 +7,8 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { AuthProvider } from "@/context/AuthContext";
 import App from "@/App";
+// Fonte Inter auto-hospedada (sem requisições externas — privacidade/LGPD).
+import "@fontsource-variable/inter";
 import "@/index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

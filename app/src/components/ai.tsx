@@ -138,7 +138,7 @@ export function AiAssistButton({
 /** Aviso padrão de que a IA pode errar e a decisão é do profissional. */
 export function AiDisclaimer({ text }: { text?: string }) {
   return (
-    <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
       <span>
         {text ||
