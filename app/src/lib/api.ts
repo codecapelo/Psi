@@ -128,7 +128,7 @@ export const patients = {
       `/patients${search ? `?q=${encodeURIComponent(search)}` : ""}`,
     ),
   get: (id: string) => request<Patient>(`/patients/${id}`),
-  create: (data: { name: string; externalId?: string | null }) =>
+  create: (data: { name: string; externalId?: string | null; details?: Patient["details"] }) =>
     request<Patient>("/patients", {
       method: "POST",
       body: JSON.stringify(data),
@@ -192,6 +192,8 @@ export const episodes = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  /** Descarta um episódio inteiro (bloqueado se tiver atendimento assinado). */
+  remove: (id: string) => request<void>(`/episodes/${id}`, { method: "DELETE" }),
 };
 
 // --------------------------------------------------------------------------

@@ -7,6 +7,8 @@ import { isStepComplete } from "@/modules/completion";
 import { useToast } from "@/context/ToastContext";
 import type { WizardGroup } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EvolucaoWatchlist } from "@/modules/evolucao/Watchlist";
 import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: WizardGroup[] = ["Clínico", "Síntese", "Conclusão", "IA"];
@@ -34,6 +36,7 @@ function WizardInner({ stepId }: { stepId?: string }) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [signing, setSigning] = useState(false);
+  const [confirmSign, setConfirmSign] = useState(false);
 
   const tipo = exam?.tipo ?? "consulta";
   const steps = useMemo(() => getStepsForTipo(tipo), [tipo]);
@@ -82,18 +85,23 @@ function WizardInner({ stepId }: { stepId?: string }) {
   const go = (id: string) => navigate(`/exame/${exam.id}/${id}`);
   const finish = () => navigate(`/pacientes/${exam.patientId}/historico`);
 
-  // Evolução e alta assinam pelo botão dedicado dentro da própria etapa; aqui o
-  // "Concluir" só assina os tipos que não têm assinatura própria (admissão e
-  // consulta) — sem isso, ficariam "Em aberto" para sempre na cronologia.
-  const signsOnFinish = !locked && (tipo === "admissao" || tipo === "consulta");
+  // "Concluir" assina TODOS os tipos assináveis no último passo (admissão,
+  // consulta, evolução e alta). Antes a evolução/alta só assinavam pelo botão
+  // do topo — quem clicava "Concluir" saía sem assinar e o atendimento ficava
+  // "Em aberto" na cronologia. Agora há um caminho único e confiável.
+  const signsOnFinish =
+    !locked &&
+    (tipo === "admissao" || tipo === "consulta" || tipo === "evolucao" || tipo === "alta");
+
+  const signMessage =
+    tipo === "alta"
+      ? "Concluir e assinar a alta? O documento fica imutável e o episódio é encerrado."
+      : tipo === "evolucao"
+        ? "Concluir e assinar esta evolução? Após assinar, ela fica imutável."
+        : "Concluir e assinar este atendimento? Após assinar, fica imutável.";
 
   const finishAndSign = async () => {
-    if (
-      !window.confirm(
-        "Concluir e assinar este atendimento? Após assinar, fica imutável.",
-      )
-    )
-      return;
+    setConfirmSign(false);
     setSigning(true);
     try {
       await lock();
@@ -191,6 +199,11 @@ function WizardInner({ stepId }: { stepId?: string }) {
             </div>
           ))}
         </nav>
+
+        {/* Pontos a reavaliar até a alta — só na evolução, derivado da admissão. */}
+        {tipo === "evolucao" && exam.episodeId && (
+          <EvolucaoWatchlist patientId={exam.patientId} episodeId={exam.episodeId} />
+        )}
       </aside>
 
       {/* Conteúdo da etapa */}
@@ -216,7 +229,7 @@ function WizardInner({ stepId }: { stepId?: string }) {
               <ChevronRight className="h-4 w-4" />
             </Button>
           ) : signsOnFinish ? (
-            <Button variant="primary" loading={signing} onClick={finishAndSign}>
+            <Button variant="primary" loading={signing} onClick={() => setConfirmSign(true)}>
               Concluir e assinar
               <PenLine className="h-4 w-4" />
             </Button>
@@ -228,6 +241,16 @@ function WizardInner({ stepId }: { stepId?: string }) {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmSign}
+        onClose={() => setConfirmSign(false)}
+        onConfirm={() => void finishAndSign()}
+        title="Concluir e assinar"
+        message={signMessage}
+        confirmLabel="Concluir e assinar"
+        loading={signing}
+      />
     </div>
   );
 }

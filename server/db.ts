@@ -99,6 +99,9 @@ CREATE TABLE IF NOT EXISTS patients (
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
+-- Dados cadastrais opcionais (nascimento, sexo, CPF, filiação, endereço…),
+-- usados para preencher documentos automaticamente. Só o nome é obrigatório.
+ALTER TABLE patients ADD COLUMN IF NOT EXISTS details jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS exams (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),

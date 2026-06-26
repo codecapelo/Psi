@@ -76,7 +76,7 @@ describe("buildEvolucaoSeed", () => {
     expect(seed.prev?.eem).toEqual({ humor: ["hipotimia"], pensamento: ["lentificado"] });
   });
 
-  it("a partir da admissão → semeia EEM/A/P das fatias clínicas", () => {
+  it("a partir da admissão → semeia EEM/P; A fica livre (não herda diagnóstico)", () => {
     const seed = buildEvolucaoSeed({
       tipo: "admissao",
       date: "2026-06-20T09:00:00.000Z",
@@ -90,7 +90,9 @@ describe("buildEvolucaoSeed", () => {
       },
     });
     expect(seed.eem).toEqual({ humor: ["deprimido", "anedonia"] });
-    expect(seed.a).toBe("síndrome depressiva — F32.1");
+    // O "A" é deixado livre: a avaliação do dia é escrita do zero.
+    expect(seed.a).toBe("");
+    expect(seed.prev?.a).toBe("");
     expect(seed.p).toBe("iniciar ISRS; retorno em 7 dias");
     expect(seed.s).toBe("");
     expect(seed.prev?.sourceTipo).toBe("admissao");

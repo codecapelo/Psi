@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PenLine, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
 import { StepShell } from "@/components/StepShell";
 import { Card, CardHeader, Field, Textarea, Button, Badge, CheckboxItem } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useExam, useExamSlice } from "@/context/ExamContext";
 import { useToast } from "@/context/ToastContext";
 import { formatDate } from "@/lib/utils";
@@ -54,6 +55,7 @@ export default function EvolucaoStep() {
   const { locked, lock } = useExam();
   const { toast } = useToast();
   const [signing, setSigning] = useState(false);
+  const [confirmSign, setConfirmSign] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   const prev = e.prev;
@@ -74,8 +76,8 @@ export default function EvolucaoStep() {
     patch({ eem: next });
   };
 
-  const sign = async () => {
-    if (!window.confirm("Assinar esta evolução? Após assinar, ela fica imutável.")) return;
+  const doSign = async () => {
+    setConfirmSign(false);
     setSigning(true);
     try {
       await lock();
@@ -116,7 +118,7 @@ export default function EvolucaoStep() {
             size="sm"
             icon={<PenLine className="h-4 w-4" />}
             loading={signing}
-            onClick={sign}
+            onClick={() => setConfirmSign(true)}
           >
             Assinar evolução
           </Button>
@@ -243,6 +245,16 @@ export default function EvolucaoStep() {
           </div>
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={confirmSign}
+        onClose={() => setConfirmSign(false)}
+        onConfirm={() => void doSign()}
+        title="Assinar evolução"
+        message="Assinar esta evolução? Após assinar, ela fica imutável."
+        confirmLabel="Assinar"
+        loading={signing}
+      />
     </StepShell>
   );
 }

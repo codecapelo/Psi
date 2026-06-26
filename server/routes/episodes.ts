@@ -113,9 +113,19 @@ episodesRouter.post("/patients/:patientId/episodes", async (req, res, next) => {
 
 // Abre uma internação: cria o episódio + a admissão ATOMICAMENTE (uma transação)
 // e devolve a admissão. Evita episódios órfãos se algo falhar no meio.
+// Regra clínica: o paciente só pode ter UMA internação aberta por vez — se já
+// houver uma, devolve 409 com o id dela (o cliente abre a existente).
 episodesRouter.post("/patients/:patientId/internacao", async (req, res, next) => {
   try {
-    const exam = await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
+      const { rows: open } = await client.query<{ id: string }>(
+        `SELECT id FROM episodes
+         WHERE patient_id = $1 AND tipo = 'internacao' AND status = 'aberto'
+         ORDER BY opened_at DESC LIMIT 1`,
+        [req.params.patientId],
+      );
+      if (open.length > 0) return { conflict: open[0].id };
+
       const { rows: epRows } = await client.query<EpisodeRow>(
         `INSERT INTO episodes (patient_id, tipo) VALUES ($1, 'internacao') RETURNING *`,
         [req.params.patientId],
@@ -126,10 +136,17 @@ episodesRouter.post("/patients/:patientId/internacao", async (req, res, next) =>
          VALUES ($1, $2, 'admissao', 1, '{}'::jsonb) RETURNING *`,
         [ep.patient_id, ep.id],
       );
-      return toExam(exRows[0]);
+      return { exam: toExam(exRows[0]) };
     });
-    await audit("CREATE", "episode", exam.episodeId, `internação + admissão (paciente ${req.params.patientId})`, req.user?.email);
-    res.status(201).json(exam);
+
+    if ("conflict" in result) {
+      return res.status(409).json({
+        error: "Este paciente já tem uma internação aberta. Conclua-a (alta) antes de abrir outra.",
+        episodeId: result.conflict,
+      });
+    }
+    await audit("CREATE", "episode", result.exam.episodeId, `internação + admissão (paciente ${req.params.patientId})`, req.user?.email);
+    res.status(201).json(result.exam);
   } catch (err) {
     next(err);
   }
@@ -239,6 +256,47 @@ episodesRouter.patch("/episodes/:id", async (req, res, next) => {
       return res.status(404).json({ error: "Episódio não encontrado." });
     await audit("UPDATE", "episode", req.params.id, status ? `status=${status}` : null, req.user?.email);
     res.json(toEpisode(rows[0]));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Descarta um episódio inteiro (ex.: internação aberta vazia/equivocada).
+// Bloqueia se houver QUALQUER atendimento assinado — registro assinado é
+// imutável e não pode ser apagado. Caso contrário, remove o episódio e seus
+// atendimentos não assinados atomicamente.
+episodesRouter.delete("/episodes/:id", async (req, res, next) => {
+  try {
+    const result = await withTransaction(async (client) => {
+      const { rows: epRows } = await client.query<{ id: string }>(
+        `SELECT id FROM episodes WHERE id = $1 FOR UPDATE`,
+        [req.params.id],
+      );
+      if (epRows.length === 0) return { status: 404 as const };
+      const { rows: locked } = await client.query<{ n: string }>(
+        `SELECT count(*) AS n FROM exams WHERE episode_id = $1 AND locked_at IS NOT NULL`,
+        [req.params.id],
+      );
+      if (Number(locked[0]?.n ?? 0) > 0) return { status: 409 as const };
+      const { rows: cnt } = await client.query<{ n: string }>(
+        `SELECT count(*) AS n FROM exams WHERE episode_id = $1`,
+        [req.params.id],
+      );
+      // ON DELETE SET NULL transformaria os atendimentos em avulsos — por isso
+      // apagamos explicitamente os (não assinados) antes do episódio.
+      await client.query(`DELETE FROM exams WHERE episode_id = $1`, [req.params.id]);
+      await client.query(`DELETE FROM episodes WHERE id = $1`, [req.params.id]);
+      return { status: 200 as const, removed: Number(cnt[0]?.n ?? 0) };
+    });
+
+    if (result.status === 404)
+      return res.status(404).json({ error: "Episódio não encontrado." });
+    if (result.status === 409)
+      return res.status(409).json({
+        error: "O episódio tem atendimentos assinados e não pode ser descartado.",
+      });
+    await audit("DELETE", "episode", req.params.id, `${result.removed} atendimento(s) removido(s)`, req.user?.email);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
