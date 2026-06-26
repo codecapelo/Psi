@@ -10,6 +10,7 @@ import { Button, Spinner } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EvolucaoWatchlist } from "@/modules/evolucao/Watchlist";
 import { AltaJourney } from "@/modules/alta/Journey";
+import { SignedDocument } from "@/components/SignedDocument";
 import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: WizardGroup[] = ["Clínico", "Síntese", "Conclusão", "IA"];
@@ -54,11 +55,12 @@ function WizardInner({ stepId }: { stepId?: string }) {
   const current = steps.find((s) => s.id === stepId) ?? null;
 
   // Quando a rota não corresponde a uma etapa do tipo, vai para a primeira.
+  // (Assinado não precisa de etapa: a vista de documento ignora o stepId.)
   useEffect(() => {
-    if (exam && !current) {
+    if (exam && !current && !locked) {
       navigate(`/exame/${exam.id}/${steps[0].id}`, { replace: true });
     }
-  }, [exam, current, steps, navigate]);
+  }, [exam, current, steps, navigate, locked]);
 
   if (isLoading) {
     return (
@@ -76,6 +78,11 @@ function WizardInner({ stepId }: { stepId?: string }) {
         </Link>
       </div>
     );
+  }
+
+  // Assinado/imutável → vista de documento (somente leitura), sem o formulário.
+  if (locked) {
+    return <SignedDocument exam={exam} />;
   }
 
   const step = current ?? steps[0];

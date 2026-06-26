@@ -138,6 +138,25 @@
   background: transparent;
 }
 
+/* Impressão / "Salvar como PDF" da vista de documento assinado.
+   Libera as alturas/overflow fixos do app para o conteúdo fluir entre páginas
+   e remove o cromo (cabeçalho, brilho de fundo) deixando só o documento. */
+@media print {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .app-canvas {
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .doc-section {
+    break-inside: avoid;
+  }
+}
+
 /* Respeita preferência de menos movimento */
 @media (prefers-reduced-motion: reduce) {
   *,

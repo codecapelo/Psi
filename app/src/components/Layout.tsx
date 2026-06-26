@@ -55,7 +55,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full">
       {!inExam && (
-        <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200/80 bg-white md:flex dark:border-slate-800 dark:bg-slate-900">
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200/80 bg-white md:flex dark:border-slate-800 dark:bg-slate-900 print:hidden">
           <Brand />
           <nav className="flex-1 space-y-1 p-3">
             <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -98,7 +98,7 @@ export function Layout({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/85 print:hidden">
           <div className="flex items-center gap-2">
             {inExam && <Brand compact />}
           </div>
