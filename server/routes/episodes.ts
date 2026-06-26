@@ -93,13 +93,20 @@ const createSchema = z.object({
   titulo: z.string().trim().nullish(),
 });
 
-// Cria um episódio.
+// Cria um episódio (ambulatorial/consulta). Internação NÃO entra por aqui: ela
+// exige admissão atômica e a regra de "uma internação aberta por paciente", que
+// só o endpoint dedicado (POST /patients/:id/internacao) garante. Criar uma
+// internação avulsa aqui geraria justamente o episódio aberto/vazio que evitamos.
 episodesRouter.post("/patients/:patientId/episodes", async (req, res, next) => {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success)
       return res.status(400).json({ error: parsed.error.issues[0]?.message });
     const { tipo, titulo } = parsed.data;
+    if (tipo === "internacao")
+      return res.status(400).json({
+        error: "Para abrir uma internação, use POST /patients/:patientId/internacao.",
+      });
     const { rows } = await query<EpisodeRow>(
       `INSERT INTO episodes (patient_id, tipo, titulo) VALUES ($1, $2, $3) RETURNING *`,
       [req.params.patientId, tipo, titulo || null],

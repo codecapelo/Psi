@@ -26,6 +26,23 @@ function toPatient(r: PatientRow) {
   };
 }
 
+/**
+ * Serializer da LISTA — OMITE `details` (CPF, RG, endereço, telefone…). A
+ * listagem/busca pode trazer até 500 pacientes e a UI só usa nome/ID/datas;
+ * expor cadastro em massa ampliaria desnecessariamente a PII no payload.
+ * Os detalhes ficam no GET individual e no detalhe do exame, que de fato os usam.
+ */
+function toPatientListItem(r: Omit<PatientRow, "details">) {
+  return {
+    id: r.id,
+    name: r.name,
+    externalId: r.external_id,
+    summary: r.summary,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
 // Dados cadastrais opcionais. Whitelist de campos (chaves desconhecidas são
 // descartadas pelo zod) — só o nome do paciente é obrigatório.
 const detailsSchema = z
@@ -50,8 +67,11 @@ patientsRouter.get("/patients", async (req, res, next) => {
   try {
     const q = (req.query.q as string | undefined)?.trim();
     const like = q ? `%${q}%` : null;
-    const { rows } = await query<PatientRow>(
-      `SELECT p.* FROM patients p
+    // Não selecionamos `details` aqui — a lista não os usa e não devem trafegar
+    // em massa (ver toPatientListItem).
+    const { rows } = await query<Omit<PatientRow, "details">>(
+      `SELECT p.id, p.name, p.external_id, p.summary, p.created_at, p.updated_at
+       FROM patients p
        WHERE ($1::text IS NULL
               OR p.name ILIKE $1
               OR coalesce(p.external_id,'') ILIKE $1
@@ -64,7 +84,7 @@ patientsRouter.get("/patients", async (req, res, next) => {
     );
     // LGPD: acesso a dados de pacientes é auditado (inclusive buscas).
     await audit("READ", "patient", null, q ? `busca: ${q}` : "lista", req.user?.email);
-    res.json(rows.map(toPatient));
+    res.json(rows.map(toPatientListItem));
   } catch (err) {
     next(err);
   }
@@ -126,7 +146,9 @@ patientsRouter.patch("/patients/:id", async (req, res, next) => {
          name = COALESCE($2, name),
          external_id = COALESCE($3, external_id),
          summary = COALESCE($4, summary),
-         details = COALESCE($5::jsonb, details),
+         -- MESCLA (||) os detalhes enviados sobre os existentes: um PATCH parcial
+         -- (ex.: só telefone) preserva nascimento/CPF/endereço já salvos.
+         details = CASE WHEN $5::jsonb IS NULL THEN details ELSE details || $5::jsonb END,
          updated_at = now()
        WHERE id = $1 RETURNING *`,
       [req.params.id, name ?? null, externalId ?? null, summary ?? null, details ? JSON.stringify(details) : null],
