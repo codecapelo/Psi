@@ -10,6 +10,9 @@ import App from "@/App";
 // Fonte Inter auto-hospedada (sem requisições externas — privacidade/LGPD).
 import "@fontsource-variable/inter";
 import "@/index.css";
+// Shell SOPsi 2.0 (layout/chrome do app: sidebar, topbar, tabs mobile, surfaces).
+// Importado APÓS index.css para reger a aparência do shell sobre as bases Tailwind.
+import "@/styles/shell.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

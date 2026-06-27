@@ -1,11 +1,15 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Layout } from "@/components/Layout";
+import { AppShell } from "@/components/shell/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { Spinner } from "@/components/ui";
 import LoginPage from "@/pages/LoginPage";
 import UsersPage from "@/pages/UsersPage";
+import PainelPage from "@/pages/PainelPage";
 import PatientsPage from "@/pages/PatientsPage";
 import PatientHistoryPage from "@/pages/PatientHistoryPage";
+import AgendaPage from "@/pages/AgendaPage";
+import EvolucaoIaPage from "@/pages/EvolucaoIaPage";
+import PrescricaoPage from "@/pages/PrescricaoPage";
 import ExamWizardPage from "@/pages/ExamWizardPage";
 import AuditLogPage from "@/pages/AuditLogPage";
 import MospPage from "@/pages/MospPage";
@@ -31,13 +35,17 @@ export default function App() {
   }
 
   return (
-    <Layout>
+    <AppShell>
       <Routes>
-        <Route path="/" element={<PatientsPage />} />
-        <Route
-          path="/pacientes/:patientId/historico"
-          element={<PatientHistoryPage />}
-        />
+        <Route path="/" element={<PainelPage />} />
+        <Route path="/pacientes" element={<PatientsPage />} />
+        <Route path="/pacientes/:patientId" element={<PatientHistoryPage />} />
+        {/* Alias legado: links do wizard/documento usam .../historico. */}
+        <Route path="/pacientes/:patientId/historico" element={<PatientHistoryPage />} />
+        <Route path="/agenda" element={<AgendaPage />} />
+        <Route path="/ia" element={<EvolucaoIaPage />} />
+        <Route path="/ia/:patientId" element={<EvolucaoIaPage />} />
+        <Route path="/prescricao/:patientId" element={<PrescricaoPage />} />
         <Route path="/exame/:examId" element={<ExamWizardPage />} />
         <Route path="/exame/:examId/:stepId" element={<ExamWizardPage />} />
         <Route path="/mosp" element={<MospPage />} />
@@ -48,6 +56,6 @@ export default function App() {
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
-    </Layout>
+    </AppShell>
   );
 }

@@ -31,6 +31,20 @@ export interface PatientDetails {
   telefone?: string;
 }
 
+/** Nível de risco clínico do paciente (vigilância). */
+export type RiscoNivel = "baixo" | "moderado" | "alto";
+
+/**
+ * Resumo clínico denormalizado (2.0) — risco/leito/alergias. Lido em massa pelas
+ * listas e pelo painel sem abrir cada atendimento. O conteúdo clínico profundo
+ * continua em `Exam.data`.
+ */
+export interface PatientClinical {
+  risco?: RiscoNivel;
+  leito?: string;
+  alergias?: string[];
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -40,8 +54,90 @@ export interface Patient {
   summary?: string | null;
   /** Dados cadastrais opcionais (nascimento, sexo, CPF, filiação…). */
   details?: PatientDetails | null;
+  /** Resumo clínico (risco, leito, alergias). */
+  clinical?: PatientClinical | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Status derivado do episódio de internação aberto (para listas/painel). */
+export type PatientOverviewStatus = "internado" | "alta-elaboracao";
+
+/**
+ * Paciente enriquecido com o resumo do episódio de internação aberto. Servido
+ * por `GET /patients/overview` para o Painel e a tela Pacientes (sem `details`).
+ */
+export interface PatientOverview {
+  id: string;
+  name: string;
+  externalId?: string | null;
+  summary?: string | null;
+  clinical: PatientClinical;
+  status: PatientOverviewStatus | null;
+  episodeId: string | null;
+  internadoEm: string | null;
+  diasInternado: number | null;
+  diagnostico: { sindromico: string; nosologico: string; cid: string } | null;
+  ultimaEvolucao: { quando: string; texto: string } | null;
+  evolucoesPendentes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --------------------------------------------------------------------------
+// Prescrição (2.0)
+// --------------------------------------------------------------------------
+export type PrescriptionItemStatus = "ativo" | "novo" | "suspenso";
+
+export interface PrescriptionItem {
+  nome: string;
+  dose: string;
+  via: string;
+  freq: string;
+  status: PrescriptionItemStatus;
+}
+
+export interface Prescription {
+  id: string;
+  patientId: string;
+  episodeId?: string | null;
+  items: PrescriptionItem[];
+  lockedAt?: string | null;
+  hash?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --------------------------------------------------------------------------
+// Agenda (2.0)
+// --------------------------------------------------------------------------
+export type AppointmentTipo = "round" | "evolucao" | "risco" | "alta" | "reuniao";
+
+export interface Appointment {
+  id: string;
+  patientId?: string | null;
+  tipo: AppointmentTipo;
+  titulo: string;
+  local?: string | null;
+  scheduledAt: string;
+  done: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --------------------------------------------------------------------------
+// Notificações (2.0)
+// --------------------------------------------------------------------------
+export type NotificationTipo = "risco" | "evolucao" | "alta" | "medicacao" | "exame";
+
+export interface Notification {
+  id: string;
+  tipo: NotificationTipo;
+  titulo: string;
+  descricao?: string | null;
+  patientId?: string | null;
+  read: boolean;
+  createdAt: string;
 }
 
 export type ExamStatus = "em_andamento" | "concluido";
