@@ -6,7 +6,7 @@ import { ageFromISO, formatDate, relativeFromNow } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { Button, Card, CardHeader, Badge, EmptyState, Spinner } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { EpisodeTimeline } from "@/components/EpisodeTimeline";
+import { EpisodeTimeline, describeExam } from "@/components/EpisodeTimeline";
 import { StartExamModal } from "@/components/StartExamModal";
 import { Icon, type IconName } from "@/components/Icon";
 import { PatientAvatar, StatusPill, RiskPill } from "@/components/shell-ui";
@@ -71,6 +71,7 @@ export default function PatientHistoryPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [toDiscard, setToDiscard] = useState<EpisodeWithExams | null>(null);
+  const [toDeleteExam, setToDeleteExam] = useState<Exam | null>(null);
   const [startFor, setStartFor] = useState<Patient | null>(null);
 
   const patientQ = useQuery({
@@ -120,6 +121,17 @@ export default function PatientHistoryPage() {
       invalidate();
       toast("Internação descartada.", "success");
       setToDiscard(null);
+    },
+    onError: (e) => toast(e instanceof Error ? e.message : "Erro ao descartar.", "error"),
+  });
+  // Descarta um atendimento individual NÃO assinado (ex.: um rascunho de alta
+  // equivocado que bloqueia novas evoluções e prende o paciente em alta-elaboração).
+  const deleteExam = useMutation({
+    mutationFn: (id: string) => apiClient.exams.remove(id),
+    onSuccess: () => {
+      invalidate();
+      toast("Atendimento descartado.", "success");
+      setToDeleteExam(null);
     },
     onError: (e) => toast(e instanceof Error ? e.message : "Erro ao descartar.", "error"),
   });
@@ -244,6 +256,11 @@ export default function PatientHistoryPage() {
                 const epAlta = exams.some((e) => e.tipo === "alta");
                 const epAltaDraft = exams.find((e) => e.tipo === "alta" && !e.lockedAt);
                 const canDiscard = !exams.some((e) => e.lockedAt);
+                // Rascunhos não assinados que podem ser descartados individualmente.
+                // Quando o episódio inteiro é descartável (nenhum assinado), o botão
+                // "Descartar" abaixo já cobre — aqui tratamos o caso em que há
+                // assinados + um rascunho avulso (ex.: alta equivocada).
+                const drafts = canDiscard ? [] : exams.filter((e) => !e.lockedAt);
                 return (
                   <Card key={ep.id}>
                     <CardHeader
@@ -309,6 +326,8 @@ export default function PatientHistoryPage() {
                           )}
                         </div>
                       )}
+
+                      <DraftDiscardList drafts={drafts} onDiscard={setToDeleteExam} />
                     </div>
                   </Card>
                 );
@@ -321,6 +340,10 @@ export default function PatientHistoryPage() {
                 <CardHeader title="Consultas avulsas" subtitle={`${looseExams.length} atendimento(s)`} />
                 <div style={{ padding: "16px 22px 18px" }}>
                   <EpisodeTimeline exams={looseExams} onExamClick={(ex) => navigate(`/exame/${ex.id}`)} />
+                  <DraftDiscardList
+                    drafts={looseExams.filter((e) => !e.lockedAt)}
+                    onDiscard={setToDeleteExam}
+                  />
                 </div>
               </Card>
             )}
@@ -450,6 +473,56 @@ export default function PatientHistoryPage() {
         danger
         loading={discardEpisode.isPending}
       />
+
+      <ConfirmDialog
+        open={!!toDeleteExam}
+        onClose={() => setToDeleteExam(null)}
+        onConfirm={() => toDeleteExam && deleteExam.mutate(toDeleteExam.id)}
+        title="Descartar atendimento"
+        message={
+          toDeleteExam ? (
+            <>
+              Descartar este rascunho de <strong>{describeExam(toDeleteExam).titulo}</strong> (não
+              assinado)? Esta ação não pode ser desfeita.
+            </>
+          ) : null
+        }
+        confirmLabel="Descartar"
+        danger
+        loading={deleteExam.isPending}
+      />
+    </div>
+  );
+}
+
+/** Lista de rascunhos não assinados com ação de descartar (individual). */
+function DraftDiscardList({
+  drafts,
+  onDiscard,
+}: {
+  drafts: Exam[];
+  onDiscard: (exam: Exam) => void;
+}) {
+  if (!drafts.length) return null;
+  return (
+    <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+      <div
+        className="faint"
+        style={{ fontSize: ".7rem", fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 6 }}
+      >
+        Rascunhos não assinados
+      </div>
+      {drafts.map((d) => (
+        <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0" }}>
+          <span style={{ fontSize: ".85rem", color: "var(--text)" }}>
+            {describeExam(d).titulo} · {formatDate(d.createdAt)}
+          </span>
+          <span style={{ flex: 1 }} />
+          <button className="link-btn" style={{ color: "#dc2626" }} onClick={() => onDiscard(d)}>
+            Descartar
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

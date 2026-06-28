@@ -101,12 +101,25 @@ function Recorder({ patientId }: { patientId: string }) {
   const [inserting, setInserting] = useState(false);
 
   const mediaRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(true);
 
-  useEffect(() => () => {
-    if (timer.current) clearInterval(timer.current);
-  }, []);
+  // Ao desmontar (sair da tela): encerra o cronômetro, o gravador e — sobretudo —
+  // as faixas do microfone. Sem isto, navegar para fora durante a gravação deixa
+  // o microfone capturando áudio depois que o clínico já saiu da tela.
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      if (timer.current) clearInterval(timer.current);
+      if (mediaRef.current && mediaRef.current.state !== "inactive") {
+        mediaRef.current.stop();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    },
+    [],
+  );
 
   const startRec = async () => {
     try {
@@ -119,6 +132,9 @@ function Recorder({ patientId }: { patientId: string }) {
       mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         if (timer.current) clearInterval(timer.current);
+        // Desmontado durante a gravação: apenas libera o microfone, sem transcrever
+        // nem atualizar estado de um componente que já saiu de tela.
+        if (!mountedRef.current) return;
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         setPhase("transcribing");
         try {
@@ -132,6 +148,7 @@ function Recorder({ patientId }: { patientId: string }) {
       };
       mr.start();
       mediaRef.current = mr;
+      streamRef.current = stream;
       setSecs(0);
       setPhase("recording");
       timer.current = setInterval(() => setSecs((s) => s + 1), 1000);
