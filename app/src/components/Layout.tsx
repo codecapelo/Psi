@@ -29,8 +29,12 @@ function buildNav(isAdmin: boolean): NavItem[] {
   return [
     { to: "/", label: "Meus Pacientes", icon: Users, end: true },
     { to: "/mosp", label: "MOSP — Memória", icon: BookText },
-    ...(isAdmin ? [{ to: "/usuarios", label: "Usuários", icon: UserCog }] : []),
-    { to: "/auditoria", label: "Log de Auditoria", icon: ScrollText },
+    ...(isAdmin
+      ? [
+          { to: "/usuarios", label: "Usuários", icon: UserCog },
+          { to: "/auditoria", label: "Log de Auditoria", icon: ScrollText },
+        ]
+      : []),
     { to: "/privacidade", label: "Dados & Privacidade", icon: ShieldCheck },
     { to: "/config", label: "Configurações", icon: Settings },
   ];

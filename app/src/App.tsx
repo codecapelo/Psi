@@ -42,7 +42,7 @@ export default function App() {
         <Route path="/exame/:examId/:stepId" element={<ExamWizardPage />} />
         <Route path="/mosp" element={<MospPage />} />
         {user?.isAdmin && <Route path="/usuarios" element={<UsersPage />} />}
-        <Route path="/auditoria" element={<AuditLogPage />} />
+        {user?.isAdmin && <Route path="/auditoria" element={<AuditLogPage />} />}
         <Route path="/privacidade" element={<PrivacyPage />} />
         <Route path="/config" element={<SettingsPage />} />
         <Route path="/404" element={<NotFoundPage />} />
