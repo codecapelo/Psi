@@ -6,6 +6,8 @@ import type {
   AiCompletionRequest,
   AiCompletionResponse,
   AiTranscriptionResponse,
+  Appointment,
+  AppointmentTipo,
   AuditEntry,
   AuthUser,
   EncounterTipo,
@@ -17,7 +19,13 @@ import type {
   ExamWithPatient,
   LoginResponse,
   MospMemory,
+  Notification,
+  NotificationTipo,
   Patient,
+  PatientClinical,
+  PatientOverview,
+  Prescription,
+  PrescriptionItem,
   ReportTemplate,
   User,
 } from "./types";
@@ -127,8 +135,15 @@ export const patients = {
     request<Patient[]>(
       `/patients${search ? `?q=${encodeURIComponent(search)}` : ""}`,
     ),
+  /** Lista enriquecida (status/dias/diagnóstico/última evolução) p/ painel e lista. */
+  overview: () => request<PatientOverview[]>("/patients/overview"),
   get: (id: string) => request<Patient>(`/patients/${id}`),
-  create: (data: { name: string; externalId?: string | null; details?: Patient["details"] }) =>
+  create: (data: {
+    name: string;
+    externalId?: string | null;
+    details?: Patient["details"];
+    clinical?: PatientClinical;
+  }) =>
     request<Patient>("/patients", {
       method: "POST",
       body: JSON.stringify(data),
@@ -140,6 +155,51 @@ export const patients = {
     }),
   remove: (id: string) =>
     request<void>(`/patients/${id}`, { method: "DELETE" }),
+};
+
+// --------------------------------------------------------------------------
+// Prescrição
+// --------------------------------------------------------------------------
+export const prescriptions = {
+  /** Prescrição vigente do paciente (ou null se ainda não há nenhuma). */
+  get: (patientId: string) =>
+    request<Prescription | null>(`/patients/${patientId}/prescription`),
+  upsert: (patientId: string, items: PrescriptionItem[], episodeId?: string | null) =>
+    request<Prescription>(`/patients/${patientId}/prescription`, {
+      method: "PUT",
+      body: JSON.stringify({ items, episodeId: episodeId ?? null }),
+    }),
+  lock: (id: string) =>
+    request<Prescription>(`/prescriptions/${id}/lock`, { method: "POST" }),
+};
+
+// --------------------------------------------------------------------------
+// Agenda
+// --------------------------------------------------------------------------
+export const agenda = {
+  list: (date?: string) =>
+    request<Appointment[]>(`/agenda${date ? `?date=${encodeURIComponent(date)}` : ""}`),
+  create: (data: {
+    tipo: AppointmentTipo;
+    titulo: string;
+    local?: string | null;
+    scheduledAt?: string;
+    patientId?: string | null;
+  }) => request<Appointment>("/agenda", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<Pick<Appointment, "tipo" | "titulo" | "local" | "scheduledAt" | "done">>) =>
+    request<Appointment>(`/agenda/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/agenda/${id}`, { method: "DELETE" }),
+};
+
+// --------------------------------------------------------------------------
+// Notificações
+// --------------------------------------------------------------------------
+export const notifications = {
+  list: () => request<Notification[]>("/notifications"),
+  create: (data: { tipo: NotificationTipo; titulo: string; descricao?: string | null; patientId?: string | null }) =>
+    request<Notification>("/notifications", { method: "POST", body: JSON.stringify(data) }),
+  markRead: (id: string) => request<Notification>(`/notifications/${id}/read`, { method: "POST" }),
+  markAllRead: () => request<void>("/notifications/read-all", { method: "POST" }),
 };
 
 // --------------------------------------------------------------------------
@@ -311,6 +371,9 @@ export const apiClient = {
   patients,
   exams,
   episodes,
+  prescriptions,
+  agenda,
+  notifications,
   ai,
   audit,
   mosp,

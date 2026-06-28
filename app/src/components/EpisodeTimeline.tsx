@@ -58,23 +58,21 @@ export function useEpisodeTrajetoria(patientId?: string, episodeId?: string | nu
 type TimelineVariant = "rail" | "document";
 
 /** Um nó da trajetória (um atendimento). */
-function EpisodeTimelineNode({ exam, variant }: { exam: Exam; variant: TimelineVariant }) {
+function EpisodeTimelineNode({
+  exam,
+  variant,
+  onClick,
+}: {
+  exam: Exam;
+  variant: TimelineVariant;
+  onClick?: () => void;
+}) {
   const rail = variant === "rail";
   const { titulo, detalhe } = describeExam(exam);
   const NodeIcon =
     exam.tipo === "admissao" ? DoorOpen : exam.tipo === "evolucao" ? Activity : FileText;
-  return (
-    <li className={cn("relative", !rail && "break-inside-avoid")}>
-      <span
-        className={cn(
-          "absolute top-0 flex items-center justify-center rounded-full",
-          rail
-            ? "-left-[1.85rem] h-5 w-5 bg-white text-accent-500 ring-1 ring-accent-200 dark:bg-slate-900 dark:text-accent-400 dark:ring-accent-900/50"
-            : "-left-[2.1rem] h-6 w-6 bg-accent-50 text-accent-600 ring-2 ring-white dark:bg-accent-900/30 dark:text-accent-300 dark:ring-slate-900",
-        )}
-      >
-        <NodeIcon className={rail ? "h-3 w-3" : "h-3.5 w-3.5"} />
-      </span>
+  const body = (
+    <>
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={cn(
@@ -108,6 +106,30 @@ function EpisodeTimelineNode({ exam, variant }: { exam: Exam; variant: TimelineV
           {detalhe}
         </p>
       )}
+    </>
+  );
+  return (
+    <li className={cn("relative", !rail && "break-inside-avoid")}>
+      <span
+        className={cn(
+          "absolute top-0 flex items-center justify-center rounded-full",
+          rail
+            ? "-left-[1.85rem] h-5 w-5 bg-white text-accent-500 ring-1 ring-accent-200 dark:bg-slate-900 dark:text-accent-400 dark:ring-accent-900/50"
+            : "-left-[2.1rem] h-6 w-6 bg-accent-50 text-accent-600 ring-2 ring-white dark:bg-accent-900/30 dark:text-accent-300 dark:ring-slate-900",
+        )}
+      >
+        <NodeIcon className={rail ? "h-3 w-3" : "h-3.5 w-3.5"} />
+      </span>
+      {onClick ? (
+        <button
+          onClick={onClick}
+          className="-mx-2 block w-full rounded-lg px-2 py-1 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60"
+        >
+          {body}
+        </button>
+      ) : (
+        body
+      )}
     </li>
   );
 }
@@ -121,10 +143,13 @@ export function EpisodeTimeline({
   exams,
   variant = "document",
   children,
+  onExamClick,
 }: {
   exams: Exam[];
   variant?: TimelineVariant;
   children?: ReactNode;
+  /** Quando definido, cada nó vira um botão que abre o atendimento. */
+  onExamClick?: (exam: Exam) => void;
 }) {
   const rail = variant === "rail";
   return (
@@ -135,7 +160,12 @@ export function EpisodeTimeline({
       )}
     >
       {exams.map((ex) => (
-        <EpisodeTimelineNode key={ex.id} exam={ex} variant={variant} />
+        <EpisodeTimelineNode
+          key={ex.id}
+          exam={ex}
+          variant={variant}
+          onClick={onExamClick ? () => onExamClick(ex) : undefined}
+        />
       ))}
       {children}
     </ol>
