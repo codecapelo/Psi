@@ -71,6 +71,32 @@ describe("gate de autenticação", () => {
   });
 });
 
+describe("rotas 2.0 (agenda, notificações, prescrição, overview)", () => {
+  const auth = `Bearer ${signToken("profissional@clinica.com")}`;
+  const paths = [
+    "/api/agenda",
+    "/api/notifications",
+    "/api/patients/overview",
+    "/api/patients/00000000-0000-0000-0000-000000000000/prescription",
+  ];
+
+  it("exigem autenticação (401 sem token)", async () => {
+    for (const path of paths) {
+      const res = await request(app).get(path);
+      expect(res.status).toBe(401);
+    }
+  });
+
+  it("estão registradas (autenticadas não dão 404)", async () => {
+    // Sem DATABASE_URL a consulta falha (503/500), mas a rota EXISTE e passou
+    // pelo gate de auth — o que confirma o registro em routes/index.ts.
+    for (const path of paths) {
+      const res = await request(app).get(path).set("Authorization", auth);
+      expect(res.status).not.toBe(404);
+    }
+  });
+});
+
 describe("autorização do admin", () => {
   // Token de um usuário NÃO-admin (não toca o banco no gate requireAdmin).
   const naoAdmin = `Bearer ${signToken("profissional@clinica.com")}`;

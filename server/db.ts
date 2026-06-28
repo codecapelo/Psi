@@ -102,6 +102,10 @@ CREATE TABLE IF NOT EXISTS patients (
 -- Dados cadastrais opcionais (nascimento, sexo, CPF, filiação, endereço…),
 -- usados para preencher documentos automaticamente. Só o nome é obrigatório.
 ALTER TABLE patients ADD COLUMN IF NOT EXISTS details jsonb NOT NULL DEFAULT '{}'::jsonb;
+-- Resumo clínico do paciente (2.0): risco, leito, alergias — usado nas listas e
+-- no painel. Dados clínicos profundos continuam em exams.data; isto é o resumo
+-- denormalizado que o painel/lista precisa ler sem abrir cada atendimento.
+ALTER TABLE patients ADD COLUMN IF NOT EXISTS clinical jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS exams (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -187,6 +191,51 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
+
+-- ==========================================================================
+-- SOPsi 2.0 — prescrição, agenda e notificações.
+-- ==========================================================================
+
+-- Prescrição vigente do paciente: lista de medicações + assinatura imutável
+-- (mesma ideia de hash dos atendimentos). Vários registros por paciente ao
+-- longo do tempo; o "vigente" é o mais recente.
+CREATE TABLE IF NOT EXISTS prescriptions (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id  uuid NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  episode_id  uuid REFERENCES episodes(id) ON DELETE SET NULL,
+  items       jsonb NOT NULL DEFAULT '[]'::jsonb,  -- [{nome,dose,via,freq,status}]
+  locked_at   timestamptz,                          -- assinada → imutável
+  hash        text,                                 -- SHA-256 do conteúdo assinado
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);
+
+-- Agenda do dia (compromissos): round, evolução, avaliação de risco, alta, reunião.
+CREATE TABLE IF NOT EXISTS appointments (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id   uuid REFERENCES patients(id) ON DELETE CASCADE,  -- NULL p/ reunião etc.
+  tipo         text NOT NULL DEFAULT 'reuniao',  -- round|evolucao|risco|alta|reuniao
+  titulo       text NOT NULL,
+  local        text,
+  scheduled_at timestamptz NOT NULL DEFAULT now(),
+  done         boolean NOT NULL DEFAULT false,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_appointments_scheduled ON appointments(scheduled_at);
+
+-- Notificações ao profissional (eventos clínicos): risco, evolução, alta, etc.
+CREATE TABLE IF NOT EXISTS notifications (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo        text NOT NULL DEFAULT 'evolucao',  -- risco|evolucao|alta|medicacao|exame
+  titulo      text NOT NULL,
+  descricao   text,
+  patient_id  uuid REFERENCES patients(id) ON DELETE CASCADE,
+  read        boolean NOT NULL DEFAULT false,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
 `;
 
 /** Cria o schema (idempotente). Chamado no startup. */
