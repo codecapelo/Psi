@@ -20,7 +20,7 @@ export const NAV_CLINICA: NavEntry[] = [
 
 export const NAV_SISTEMA: NavEntry[] = [
   { to: "/mosp", label: "MOSP — Memória", icon: "book" },
-  { to: "/auditoria", label: "Auditoria", icon: "scroll" },
+  { to: "/auditoria", label: "Auditoria", icon: "scroll", admin: true },
   { to: "/usuarios", label: "Usuários", icon: "user", admin: true },
   { to: "/config", label: "Configurações", icon: "settings" },
   { to: "/privacidade", label: "Dados & Privacidade", icon: "lock" },

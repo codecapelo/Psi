@@ -22,11 +22,12 @@ function NavItem({ entry, badge }: { entry: NavEntry; badge?: number }) {
 
 export function Sidebar({ onProfile }: { onProfile: () => void }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { authRequired, user } = useAuth();
   const overview = usePatientsOverview();
   const pendentes =
     overview.data?.reduce((n, p) => n + (p.evolucoesPendentes || 0), 0) ?? 0;
 
+  const canUseAdminFeatures = !authRequired || !!user?.isAdmin;
   const name = user?.email ?? "Profissional";
 
   return (
@@ -60,7 +61,7 @@ export function Sidebar({ onProfile }: { onProfile: () => void }) {
       ))}
 
       <div className="nav-group-label">Sistema</div>
-      {NAV_SISTEMA.filter((e) => !e.admin || user?.isAdmin).map((e) => (
+      {NAV_SISTEMA.filter((e) => !e.admin || canUseAdminFeatures).map((e) => (
         <NavItem key={e.to} entry={e} />
       ))}
 

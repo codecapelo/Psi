@@ -19,6 +19,7 @@ import NotFoundPage from "@/pages/NotFoundPage";
 
 export default function App() {
   const { ready, authRequired, user } = useAuth();
+  const canUseAdminFeatures = !authRequired || !!user?.isAdmin;
 
   // Aguarda o bootstrap de autenticação antes de renderizar a aplicação.
   if (!ready) {
@@ -49,8 +50,8 @@ export default function App() {
         <Route path="/exame/:examId" element={<ExamWizardPage />} />
         <Route path="/exame/:examId/:stepId" element={<ExamWizardPage />} />
         <Route path="/mosp" element={<MospPage />} />
-        {user?.isAdmin && <Route path="/usuarios" element={<UsersPage />} />}
-        <Route path="/auditoria" element={<AuditLogPage />} />
+        {canUseAdminFeatures && <Route path="/usuarios" element={<UsersPage />} />}
+        {canUseAdminFeatures && <Route path="/auditoria" element={<AuditLogPage />} />}
         <Route path="/privacidade" element={<PrivacyPage />} />
         <Route path="/config" element={<SettingsPage />} />
         <Route path="/404" element={<NotFoundPage />} />

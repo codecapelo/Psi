@@ -243,7 +243,7 @@ Toda IA roda no backend (chave protegida). Tarefas suportadas:
 - **Hardening HTTP:** `helmet` (com CSP afinada para o SPA), `express-rate-limit` (login, IA e API
   geral) e CORS restrito a same-origin por padrão (`CORS_ORIGIN='*'` é rejeitado com aviso).
 - **Privilégios do admin:** é o **único** que gerencia usuários (`/api/users`), edita o **MOSP**,
-  vê a **trilha de auditoria completa** (os demais veem só as próprias ações) e pode executar o
+  vê a **trilha de auditoria** e pode executar o
   **apagamento global de dados** (`/privacy/wipe`).
 
 > ⚠️ **Transferência internacional (LGPD):** os recursos de IA enviam o conteúdo clínico para a

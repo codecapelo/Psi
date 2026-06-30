@@ -112,4 +112,9 @@ describe("autorização do admin", () => {
       .set("Authorization", naoAdmin);
     expect(res.status).toBe(403);
   });
+
+  it("GET /api/audit por não-admin → 403", async () => {
+    const res = await request(app).get("/api/audit").set("Authorization", naoAdmin);
+    expect(res.status).toBe(403);
+  });
 });
